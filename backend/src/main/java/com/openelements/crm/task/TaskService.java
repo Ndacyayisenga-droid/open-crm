@@ -149,7 +149,7 @@ public class TaskService extends AbstractDbBackedDataService<TaskEntity, TaskDto
         task.getComments().clear();
         taskRepository.saveAndFlush(task);
         commentIds.forEach(commentService::delete);
-        taskRepository.delete(task);
+        super.delete(toData(task));
     }
 
     @Override

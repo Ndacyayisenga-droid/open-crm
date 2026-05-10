@@ -256,7 +256,10 @@ public class CompanyService extends AbstractDbBackedDataService<CompanyEntity, C
         company.getComments().clear();
         companyRepository.saveAndFlush(company);
         commentIds.forEach(commentService::delete);
-        companyRepository.delete(company);
+        // Convert to DTO inside the still-active @Transactional method so lazy
+        // collections (tags) can resolve, then defer to the lib's delete(D) so
+        // pre/post delete events fire as before.
+        super.delete(toData(company));
     }
 
     @Override

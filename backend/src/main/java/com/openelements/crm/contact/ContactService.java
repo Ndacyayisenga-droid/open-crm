@@ -338,7 +338,7 @@ public class ContactService extends AbstractDbBackedDataService<ContactEntity, C
         contact.getComments().clear();
         contactRepository.saveAndFlush(contact);
         commentIds.forEach(commentService::delete);
-        contactRepository.delete(contact);
+        super.delete(toData(contact));
     }
 
     @Override
