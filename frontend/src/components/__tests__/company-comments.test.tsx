@@ -3,7 +3,7 @@ import { screen, cleanup, fireEvent, waitFor } from "@testing-library/react";
 import { CompanyComments } from "@/components/company-comments";
 import { de } from "@/lib/i18n/de";
 import { renderWithProviders } from "@/test/test-utils";
-import type { CommentDto, Page } from "@/lib/types";
+import type { CommentDto } from "@/lib/types";
 
 const S = de.companies.comments;
 
@@ -13,6 +13,7 @@ const mockCreateCompanyComment = vi.fn();
 vi.mock("@/lib/api", () => ({
   getCompanyComments: (...args: unknown[]) => mockGetCompanyComments(...args),
   createCompanyComment: (...args: unknown[]) => mockCreateCompanyComment(...args),
+  deleteCompanyComment: vi.fn(),
   getTranslationSettings: vi.fn().mockResolvedValue({ configured: false }),
 }));
 
@@ -42,25 +43,17 @@ function makeComment(overrides: Partial<CommentDto> = {}): CommentDto {
   return {
     id: "comment-1",
     text: "Test comment",
-    author: "UNKNOWN",
-    companyId: "company-1",
-    contactId: null,
-    taskId: null,
+    author: {
+      id: "user-1",
+      name: "Tester",
+      email: "tester@example.com",
+      avatarUrl: null,
+      createdAt: "2026-03-01T00:00:00Z",
+      updatedAt: "2026-03-01T00:00:00Z",
+    },
     createdAt: "2026-03-27T15:30:00Z",
     updatedAt: "2026-03-27T15:30:00Z",
     ...overrides,
-  };
-}
-
-function makePage(comments: CommentDto[], last: boolean = true): Page<CommentDto> {
-  return {
-    content: comments,
-    page: {
-      size: 20,
-      number: 0,
-      totalElements: comments.length,
-      totalPages: last ? 1 : 2,
-    },
   };
 }
 
@@ -72,24 +65,22 @@ afterEach(() => {
 describe("CompanyComments", () => {
   describe("display", () => {
     it("should render comments with author, date, and text", async () => {
-      mockGetCompanyComments.mockResolvedValue(
-        makePage([
-          makeComment({ id: "1", text: "First comment", author: "UNKNOWN" }),
-          makeComment({ id: "2", text: "Second comment", author: "UNKNOWN" }),
-        ]),
-      );
+      mockGetCompanyComments.mockResolvedValue([
+        makeComment({ id: "1", text: "First comment" }),
+        makeComment({ id: "2", text: "Second comment" }),
+      ]);
 
       renderWithProviders(<CompanyComments companyId="company-1" />);
 
       await waitFor(() => {
         expect(screen.getByText("First comment")).toBeInTheDocument();
         expect(screen.getByText("Second comment")).toBeInTheDocument();
-        expect(screen.getAllByText(/UNKNOWN/).length).toBeGreaterThanOrEqual(2);
+        expect(screen.getAllByText(/Tester/).length).toBeGreaterThanOrEqual(2);
       });
     });
 
     it("should show empty state when no comments", async () => {
-      mockGetCompanyComments.mockResolvedValue(makePage([]));
+      mockGetCompanyComments.mockResolvedValue([]);
 
       renderWithProviders(<CompanyComments companyId="company-1" />);
 
@@ -108,9 +99,9 @@ describe("CompanyComments", () => {
     });
 
     it("should format dates in readable format", async () => {
-      mockGetCompanyComments.mockResolvedValue(
-        makePage([makeComment({ createdAt: "2026-03-27T15:30:00Z" })]),
-      );
+      mockGetCompanyComments.mockResolvedValue([
+        makeComment({ createdAt: "2026-03-27T15:30:00Z" }),
+      ]);
 
       renderWithProviders(<CompanyComments companyId="company-1" />);
 
@@ -119,11 +110,24 @@ describe("CompanyComments", () => {
         expect(dateText).toBeInTheDocument();
       });
     });
+
+    it("should render — when author is null (legacy SYSTEM-USER fallback)", async () => {
+      mockGetCompanyComments.mockResolvedValue([
+        makeComment({ id: "1", text: "Legacy", author: null }),
+      ]);
+
+      renderWithProviders(<CompanyComments companyId="company-1" />);
+
+      await waitFor(() => {
+        expect(screen.getByText("Legacy")).toBeInTheDocument();
+        expect(screen.getByText(/—/)).toBeInTheDocument();
+      });
+    });
   });
 
   describe("add comment button", () => {
     it("should show Add Comment button in header", async () => {
-      mockGetCompanyComments.mockResolvedValue(makePage([]));
+      mockGetCompanyComments.mockResolvedValue([]);
 
       renderWithProviders(<CompanyComments companyId="company-1" />);
 
@@ -133,7 +137,7 @@ describe("CompanyComments", () => {
     });
 
     it("should not show inline textarea", async () => {
-      mockGetCompanyComments.mockResolvedValue(makePage([]));
+      mockGetCompanyComments.mockResolvedValue([]);
 
       renderWithProviders(<CompanyComments companyId="company-1" />);
 
@@ -145,7 +149,7 @@ describe("CompanyComments", () => {
     });
 
     it("should open dialog when Add Comment button is clicked", async () => {
-      mockGetCompanyComments.mockResolvedValue(makePage([]));
+      mockGetCompanyComments.mockResolvedValue([]);
 
       renderWithProviders(<CompanyComments companyId="company-1" />);
 
@@ -156,9 +160,7 @@ describe("CompanyComments", () => {
       fireEvent.click(screen.getByText(S.add));
 
       await waitFor(() => {
-        // Dialog opens with textarea
         expect(screen.getByPlaceholderText(S.placeholder)).toBeInTheDocument();
-        // Title appears (may appear multiple times due to button + dialog title)
         expect(screen.getAllByText(S.addTitle).length).toBeGreaterThanOrEqual(1);
       });
     });
@@ -166,7 +168,7 @@ describe("CompanyComments", () => {
 
   describe("modal create flow", () => {
     it("should disable send button when text is empty", async () => {
-      mockGetCompanyComments.mockResolvedValue(makePage([]));
+      mockGetCompanyComments.mockResolvedValue([]);
 
       renderWithProviders(<CompanyComments companyId="company-1" />);
 
@@ -183,9 +185,9 @@ describe("CompanyComments", () => {
     });
 
     it("should create comment, close dialog, and add to top of list", async () => {
-      mockGetCompanyComments.mockResolvedValue(
-        makePage([makeComment({ id: "1", text: "Existing comment" })]),
-      );
+      mockGetCompanyComments.mockResolvedValue([
+        makeComment({ id: "1", text: "Existing comment" }),
+      ]);
       mockCreateCompanyComment.mockResolvedValue(
         makeComment({ id: "2", text: "New comment" }),
       );
@@ -215,7 +217,7 @@ describe("CompanyComments", () => {
     });
 
     it("should show error dialog on API failure and preserve text", async () => {
-      mockGetCompanyComments.mockResolvedValue(makePage([]));
+      mockGetCompanyComments.mockResolvedValue([]);
       mockCreateCompanyComment.mockRejectedValue(new Error("Server error"));
 
       renderWithProviders(<CompanyComments companyId="company-1" />);
@@ -240,70 +242,14 @@ describe("CompanyComments", () => {
         expect(screen.getByText(S.errorGeneric)).toBeInTheDocument();
       });
 
-      // Text should be preserved in the dialog textarea
       const textarea = screen.getByPlaceholderText(S.placeholder) as HTMLTextAreaElement;
       expect(textarea.value).toBe("Will fail");
     });
   });
 
-  describe("pagination", () => {
-    it("should show load more button when more pages exist", async () => {
-      mockGetCompanyComments.mockResolvedValue(
-        makePage([makeComment()], false),
-      );
-
-      renderWithProviders(<CompanyComments companyId="company-1" />);
-
-      await waitFor(() => {
-        expect(screen.getByText(S.loadMore)).toBeInTheDocument();
-      });
-    });
-
-    it("should not show load more button when all loaded", async () => {
-      mockGetCompanyComments.mockResolvedValue(
-        makePage([makeComment()], true),
-      );
-
-      renderWithProviders(<CompanyComments companyId="company-1" />);
-
-      await waitFor(() => {
-        expect(screen.getByText("Test comment")).toBeInTheDocument();
-      });
-
-      expect(screen.queryByText(S.loadMore)).not.toBeInTheDocument();
-    });
-
-    it("should append comments when load more is clicked", async () => {
-      mockGetCompanyComments
-        .mockResolvedValueOnce(makePage([makeComment({ id: "1", text: "First" })], false))
-        .mockResolvedValueOnce({
-          content: [makeComment({ id: "2", text: "Second" })],
-          page: {
-            size: 20,
-            number: 1,
-            totalElements: 2,
-            totalPages: 2,
-          },
-        });
-
-      renderWithProviders(<CompanyComments companyId="company-1" />);
-
-      await waitFor(() => {
-        expect(screen.getByText("First")).toBeInTheDocument();
-      });
-
-      fireEvent.click(screen.getByText(S.loadMore));
-
-      await waitFor(() => {
-        expect(screen.getByText("First")).toBeInTheDocument();
-        expect(screen.getByText("Second")).toBeInTheDocument();
-      });
-    });
-  });
-
   describe("comment count live update", () => {
     it("should show totalCount in heading", async () => {
-      mockGetCompanyComments.mockResolvedValue(makePage([]));
+      mockGetCompanyComments.mockResolvedValue([]);
 
       renderWithProviders(<CompanyComments companyId="company-1" totalCount={3} />);
 
@@ -313,7 +259,7 @@ describe("CompanyComments", () => {
     });
 
     it("should increment count after adding a comment", async () => {
-      mockGetCompanyComments.mockResolvedValue(makePage([]));
+      mockGetCompanyComments.mockResolvedValue([]);
       mockCreateCompanyComment.mockResolvedValue(
         makeComment({ id: "new", text: "New comment" }),
       );
@@ -341,7 +287,7 @@ describe("CompanyComments", () => {
     });
 
     it("should not increment count on API failure", async () => {
-      mockGetCompanyComments.mockResolvedValue(makePage([]));
+      mockGetCompanyComments.mockResolvedValue([]);
       mockCreateCompanyComment.mockRejectedValue(new Error("Server error"));
 
       renderWithProviders(<CompanyComments companyId="company-1" totalCount={3} />);
@@ -369,7 +315,7 @@ describe("CompanyComments", () => {
     });
 
     it("should not show count when totalCount is undefined", async () => {
-      mockGetCompanyComments.mockResolvedValue(makePage([]));
+      mockGetCompanyComments.mockResolvedValue([]);
       mockCreateCompanyComment.mockResolvedValue(
         makeComment({ id: "new", text: "New comment" }),
       );
@@ -380,7 +326,6 @@ describe("CompanyComments", () => {
         expect(screen.getByText(S.title)).toBeInTheDocument();
       });
 
-      // Verify no parenthesized count
       expect(screen.queryByText(/\(\d+\)/)).not.toBeInTheDocument();
 
       fireEvent.click(screen.getByText(S.add));
@@ -398,12 +343,11 @@ describe("CompanyComments", () => {
         expect(screen.getByText("New comment")).toBeInTheDocument();
       });
 
-      // Still no count shown
       expect(screen.queryByText(/\(\d+\)/)).not.toBeInTheDocument();
     });
 
     it("should reset count when totalCount prop changes", async () => {
-      mockGetCompanyComments.mockResolvedValue(makePage([]));
+      mockGetCompanyComments.mockResolvedValue([]);
       mockCreateCompanyComment.mockResolvedValue(
         makeComment({ id: "new", text: "New comment" }),
       );
@@ -416,7 +360,6 @@ describe("CompanyComments", () => {
         expect(screen.getByText(`${S.title} (3)`)).toBeInTheDocument();
       });
 
-      // Add a comment to increment to 4
       fireEvent.click(screen.getByText(S.add));
       await waitFor(() => {
         expect(screen.getByPlaceholderText(S.placeholder)).toBeInTheDocument();
@@ -429,7 +372,6 @@ describe("CompanyComments", () => {
         expect(screen.getByText(`${S.title} (4)`)).toBeInTheDocument();
       });
 
-      // Simulate navigation to a different company by changing the prop
       rerender(
         <CompanyComments companyId="company-2" totalCount={1} />,
       );

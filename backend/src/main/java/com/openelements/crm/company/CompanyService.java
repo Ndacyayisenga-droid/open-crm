@@ -1,11 +1,14 @@
 package com.openelements.crm.company;
 
-import com.openelements.crm.comment.CommentRepository;
 import com.openelements.crm.contact.ContactRepository;
-import com.openelements.crm.task.TaskRepository;
 import com.openelements.spring.base.data.AbstractDbBackedDataService;
 import com.openelements.spring.base.data.EntityRepository;
 import com.openelements.spring.base.data.image.ImageData;
+import com.openelements.spring.base.services.comment.CommentCreateDto;
+import com.openelements.spring.base.services.comment.CommentDto;
+import com.openelements.spring.base.services.comment.CommentEntity;
+import com.openelements.spring.base.services.comment.CommentRepository;
+import com.openelements.spring.base.services.comment.CommentService;
 import com.openelements.spring.base.services.tag.TagEntity;
 import com.openelements.spring.base.services.tag.TagRepository;
 import org.springframework.context.ApplicationEventPublisher;
@@ -13,10 +16,12 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -33,18 +38,20 @@ public class CompanyService extends AbstractDbBackedDataService<CompanyEntity, C
 
     private final CompanyRepository companyRepository;
     private final ContactRepository contactRepository;
+    private final CommentService commentService;
     private final CommentRepository commentRepository;
     private final TagRepository tagRepository;
 
     public CompanyService(final CompanyRepository companyRepository,
                           final ContactRepository contactRepository,
+                          final CommentService commentService,
                           final CommentRepository commentRepository,
-                          final TaskRepository taskRepository,
                           final TagRepository tagRepository,
                           final ApplicationEventPublisher eventPublisher) {
         super(eventPublisher);
         this.companyRepository = Objects.requireNonNull(companyRepository, "companyRepository must not be null");
         this.contactRepository = Objects.requireNonNull(contactRepository, "contactRepository must not be null");
+        this.commentService = Objects.requireNonNull(commentService, "commentService must not be null");
         this.commentRepository = Objects.requireNonNull(commentRepository, "commentRepository must not be null");
         this.tagRepository = Objects.requireNonNull(tagRepository, "tagRepository must not be null");
     }
@@ -171,6 +178,90 @@ public class CompanyService extends AbstractDbBackedDataService<CompanyEntity, C
         companyRepository.saveAndFlush(entity);
     }
 
+    /**
+     * Lists comments attached to a company.
+     */
+    @Transactional(readOnly = true)
+    public List<CommentDto> listCommentsOfCompany(final UUID companyId) {
+        Objects.requireNonNull(companyId, "companyId must not be null");
+        final CompanyEntity company = companyRepository.findById(companyId)
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Company not found"));
+        return company.getComments().stream()
+            .map(c -> commentService.findById(c.getId()).orElseThrow())
+            .sorted((a, b) -> b.createdAt().compareTo(a.createdAt()))
+            .toList();
+    }
+
+    /**
+     * Adds a comment to a company. The comment row and the {@code company_comments} join row
+     * are inserted in the same transaction.
+     */
+    public CommentDto addCommentToCompany(final UUID companyId, final CommentCreateDto request) {
+        Objects.requireNonNull(companyId, "companyId must not be null");
+        Objects.requireNonNull(request, "request must not be null");
+        final CompanyEntity company = companyRepository.findById(companyId)
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Company not found"));
+        final CommentDto saved = commentService.save(new CommentDto(null, request.text(), null, null, null));
+        final CommentEntity entity = commentRepository.findByIdOrThrow(saved.id());
+        company.getComments().add(entity);
+        companyRepository.save(company);
+        return saved;
+    }
+
+    /**
+     * Updates a comment that is attached to the given company. Returns 404 if the comment is not
+     * attached to this company.
+     */
+    public CommentDto updateCommentOfCompany(final UUID companyId, final UUID commentId, final CommentCreateDto request) {
+        Objects.requireNonNull(companyId, "companyId must not be null");
+        Objects.requireNonNull(commentId, "commentId must not be null");
+        Objects.requireNonNull(request, "request must not be null");
+        assertCommentBelongsToCompany(companyId, commentId);
+        final CommentDto current = commentService.findById(commentId)
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Comment not found"));
+        return commentService.save(new CommentDto(commentId, request.text(), current.author(), current.createdAt(), current.updatedAt()));
+    }
+
+    /**
+     * Deletes a comment that is attached to the given company. Removes both the join row and
+     * the comment row.
+     */
+    public void deleteCommentOfCompany(final UUID companyId, final UUID commentId) {
+        Objects.requireNonNull(companyId, "companyId must not be null");
+        Objects.requireNonNull(commentId, "commentId must not be null");
+        assertCommentBelongsToCompany(companyId, commentId);
+        final CompanyEntity company = companyRepository.findByIdOrThrow(companyId);
+        company.getComments().removeIf(c -> c.getId().equals(commentId));
+        companyRepository.saveAndFlush(company);
+        commentService.delete(commentId);
+    }
+
+    private void assertCommentBelongsToCompany(final UUID companyId, final UUID commentId) {
+        final CompanyEntity company = companyRepository.findById(companyId)
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Company not found"));
+        final boolean belongs = company.getComments().stream()
+            .anyMatch(c -> c.getId().equals(commentId));
+        if (!belongs) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Comment not found for this company");
+        }
+    }
+
+    @Override
+    public void delete(final UUID id) {
+        Objects.requireNonNull(id, "id must not be null");
+        final CompanyEntity company = companyRepository.findById(id)
+            .orElseThrow(() -> new IllegalArgumentException("Company not found: " + id));
+        final List<UUID> commentIds = new ArrayList<>(
+            company.getComments().stream().map(CommentEntity::getId).toList());
+        company.getComments().clear();
+        companyRepository.saveAndFlush(company);
+        commentIds.forEach(commentService::delete);
+        // Convert to DTO inside the still-active @Transactional method so lazy
+        // collections (tags) can resolve, then defer to the lib's delete(D) so
+        // pre/post delete events fire as before.
+        super.delete(toData(company));
+    }
+
     @Override
     protected CompanyEntity createDetachedEntity() {
         return new CompanyEntity();
@@ -219,7 +310,7 @@ public class CompanyService extends AbstractDbBackedDataService<CompanyEntity, C
             entity.getLogo() != null,
             entity.getBrevoCompanyId() != null,
             contactRepository.countByCompanyId(entity.getId()),
-            commentRepository.countByCompanyId(entity.getId()),
+            entity.getComments().size(),
             entity.getTags().stream().map(TagEntity::getId).toList(),
             entity.getCreatedAt(),
             entity.getUpdatedAt());

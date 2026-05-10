@@ -1,19 +1,18 @@
 package com.openelements.crm.task;
 
-import com.openelements.crm.comment.CommentCreateDto;
-import com.openelements.crm.comment.CommentDto;
-import com.openelements.crm.comment.CommentService;
-import com.openelements.spring.base.security.user.UserService;
+import com.openelements.spring.base.services.comment.CommentCreateDto;
+import com.openelements.spring.base.services.comment.CommentDto;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import com.openelements.crm.security.RequiresAdmin;
+import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -36,13 +35,9 @@ import java.util.UUID;
 public class TaskController {
 
     private final TaskService taskService;
-    private final CommentService commentService;
-    private final UserService userService;
 
-    public TaskController(final TaskService taskService, final CommentService commentService, UserService userService) {
+    public TaskController(final TaskService taskService) {
         this.taskService = Objects.requireNonNull(taskService, "TaskService must not be null");
-        this.commentService = Objects.requireNonNull(commentService, "CommentService must not be null");
-        this.userService = Objects.requireNonNull(userService, "UserService must not be null");
     }
 
     @PostMapping
@@ -112,28 +107,38 @@ public class TaskController {
         return taskService.list(status, tagIds, pageable);
     }
 
-    @GetMapping("/{id}/comments")
+    @GetMapping(value = "/{id}/comments", produces = MediaType.APPLICATION_JSON_VALUE)
     @Operation(summary = "List comments for a task")
-    public Page<CommentDto> listComments(
-        @Parameter(description = "Task ID") @PathVariable final UUID id,
-        @PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.DESC) final Pageable pageable) {
-        return commentService.listByTask(id, pageable);
+    public List<CommentDto> listComments(
+        @Parameter(description = "Task ID") @PathVariable final UUID id) {
+        return taskService.listCommentsOfTask(id);
     }
 
-    @PostMapping("/{id}/comments")
+    @PostMapping(value = "/{id}/comments", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
     @ResponseStatus(HttpStatus.CREATED)
     @Operation(summary = "Add a comment to a task")
     public CommentDto addComment(
         @Parameter(description = "Task ID") @PathVariable final UUID id,
         @Valid @RequestBody final CommentCreateDto request) {
-        final CommentDto commentDto = new CommentDto(null,
-            request.text(),
-            userService.getCurrentUser().name(),
-            null,
-            null,
-            id,
-            null,
-            null);
-        return commentService.save(commentDto);
+        return taskService.addCommentToTask(id, request);
+    }
+
+    @PutMapping(value = "/{id}/comments/{commentId}", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
+    @Operation(summary = "Update a comment of a task")
+    public CommentDto updateComment(
+        @Parameter(description = "Task ID") @PathVariable final UUID id,
+        @Parameter(description = "Comment ID") @PathVariable final UUID commentId,
+        @Valid @RequestBody final CommentCreateDto request) {
+        return taskService.updateCommentOfTask(id, commentId, request);
+    }
+
+    @DeleteMapping("/{id}/comments/{commentId}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    @RequiresAdmin
+    @Operation(summary = "Delete a comment of a task")
+    public void deleteComment(
+        @Parameter(description = "Task ID") @PathVariable final UUID id,
+        @Parameter(description = "Comment ID") @PathVariable final UUID commentId) {
+        taskService.deleteCommentOfTask(id, commentId);
     }
 }

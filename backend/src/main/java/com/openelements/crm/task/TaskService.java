@@ -1,12 +1,16 @@
 package com.openelements.crm.task;
 
-import com.openelements.crm.comment.CommentRepository;
 import com.openelements.crm.company.CompanyEntity;
 import com.openelements.crm.company.CompanyRepository;
 import com.openelements.crm.contact.ContactEntity;
 import com.openelements.crm.contact.ContactRepository;
 import com.openelements.spring.base.data.AbstractDbBackedDataService;
 import com.openelements.spring.base.data.EntityRepository;
+import com.openelements.spring.base.services.comment.CommentCreateDto;
+import com.openelements.spring.base.services.comment.CommentDto;
+import com.openelements.spring.base.services.comment.CommentEntity;
+import com.openelements.spring.base.services.comment.CommentRepository;
+import com.openelements.spring.base.services.comment.CommentService;
 import com.openelements.spring.base.services.tag.TagEntity;
 import com.openelements.spring.base.services.tag.TagRepository;
 import jakarta.persistence.criteria.Join;
@@ -15,8 +19,10 @@ import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -33,12 +39,14 @@ public class TaskService extends AbstractDbBackedDataService<TaskEntity, TaskDto
     private final TaskRepository taskRepository;
     private final CompanyRepository companyRepository;
     private final ContactRepository contactRepository;
+    private final CommentService commentService;
     private final CommentRepository commentRepository;
     private final TagRepository tagRepository;
 
     public TaskService(final TaskRepository taskRepository,
                        final CompanyRepository companyRepository,
                        final ContactRepository contactRepository,
+                       final CommentService commentService,
                        final CommentRepository commentRepository,
                        final TagRepository tagRepository,
                        final ApplicationEventPublisher eventPublisher) {
@@ -46,6 +54,7 @@ public class TaskService extends AbstractDbBackedDataService<TaskEntity, TaskDto
         this.taskRepository = Objects.requireNonNull(taskRepository, "taskRepository must not be null");
         this.companyRepository = Objects.requireNonNull(companyRepository, "companyRepository must not be null");
         this.contactRepository = Objects.requireNonNull(contactRepository, "contactRepository must not be null");
+        this.commentService = Objects.requireNonNull(commentService, "commentService must not be null");
         this.commentRepository = Objects.requireNonNull(commentRepository, "commentRepository must not be null");
         this.tagRepository = Objects.requireNonNull(tagRepository, "tagRepository must not be null");
     }
@@ -72,6 +81,75 @@ public class TaskService extends AbstractDbBackedDataService<TaskEntity, TaskDto
 
             return cb.and(predicates.toArray(new Predicate[0]));
         };
+    }
+
+    /**
+     * Lists comments attached to a task.
+     */
+    @Transactional(readOnly = true)
+    public List<CommentDto> listCommentsOfTask(final UUID taskId) {
+        Objects.requireNonNull(taskId, "taskId must not be null");
+        final TaskEntity task = taskRepository.findById(taskId)
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Task not found"));
+        return task.getComments().stream()
+            .map(c -> commentService.findById(c.getId()).orElseThrow())
+            .sorted((a, b) -> b.createdAt().compareTo(a.createdAt()))
+            .toList();
+    }
+
+    public CommentDto addCommentToTask(final UUID taskId, final CommentCreateDto request) {
+        Objects.requireNonNull(taskId, "taskId must not be null");
+        Objects.requireNonNull(request, "request must not be null");
+        final TaskEntity task = taskRepository.findById(taskId)
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Task not found"));
+        final CommentDto saved = commentService.save(new CommentDto(null, request.text(), null, null, null));
+        final CommentEntity entity = commentRepository.findByIdOrThrow(saved.id());
+        task.getComments().add(entity);
+        taskRepository.save(task);
+        return saved;
+    }
+
+    public CommentDto updateCommentOfTask(final UUID taskId, final UUID commentId, final CommentCreateDto request) {
+        Objects.requireNonNull(taskId, "taskId must not be null");
+        Objects.requireNonNull(commentId, "commentId must not be null");
+        Objects.requireNonNull(request, "request must not be null");
+        assertCommentBelongsToTask(taskId, commentId);
+        final CommentDto current = commentService.findById(commentId)
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Comment not found"));
+        return commentService.save(new CommentDto(commentId, request.text(), current.author(), current.createdAt(), current.updatedAt()));
+    }
+
+    public void deleteCommentOfTask(final UUID taskId, final UUID commentId) {
+        Objects.requireNonNull(taskId, "taskId must not be null");
+        Objects.requireNonNull(commentId, "commentId must not be null");
+        assertCommentBelongsToTask(taskId, commentId);
+        final TaskEntity task = taskRepository.findByIdOrThrow(taskId);
+        task.getComments().removeIf(c -> c.getId().equals(commentId));
+        taskRepository.saveAndFlush(task);
+        commentService.delete(commentId);
+    }
+
+    private void assertCommentBelongsToTask(final UUID taskId, final UUID commentId) {
+        final TaskEntity task = taskRepository.findById(taskId)
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Task not found"));
+        final boolean belongs = task.getComments().stream()
+            .anyMatch(c -> c.getId().equals(commentId));
+        if (!belongs) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Comment not found for this task");
+        }
+    }
+
+    @Override
+    public void delete(final UUID id) {
+        Objects.requireNonNull(id, "id must not be null");
+        final TaskEntity task = taskRepository.findById(id)
+            .orElseThrow(() -> new IllegalArgumentException("Task not found: " + id));
+        final List<UUID> commentIds = new ArrayList<>(
+            task.getComments().stream().map(CommentEntity::getId).toList());
+        task.getComments().clear();
+        taskRepository.saveAndFlush(task);
+        commentIds.forEach(commentService::delete);
+        super.delete(toData(task));
     }
 
     @Override
@@ -113,7 +191,7 @@ public class TaskService extends AbstractDbBackedDataService<TaskEntity, TaskDto
             entity.getContact() != null ? entity.getContact().getId() : null,
             entity.getContact() != null ? (entity.getContact().getFirstName() + " " + entity.getContact().getLastName()) : null,
             entity.getTags().stream().map(TagEntity::getId).toList(),
-            commentRepository.countByTaskId(entity.getId()),
+            entity.getComments().size(),
             entity.getCreatedAt(),
             entity.getUpdatedAt()
         );

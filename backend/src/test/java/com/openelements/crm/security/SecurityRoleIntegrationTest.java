@@ -139,12 +139,26 @@ class SecurityRoleIntegrationTest {
             .andExpect(status().isForbidden());
     }
 
-    // -- DELETE /api/comments/{id} requires ADMIN --
+    // -- DELETE /api/companies/{id}/comments/{commentId} requires ADMIN --
 
     @Test
-    void deleteCommentForbiddenForUserNone() throws Exception {
+    void deleteCompanyCommentForbiddenForUserNone() throws Exception {
         mockMvc.perform(withRoles(
-                delete("/api/comments/" + UUID.randomUUID()), List.of()))
+                delete("/api/companies/" + UUID.randomUUID() + "/comments/" + UUID.randomUUID()), List.of()))
+            .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void deleteContactCommentForbiddenForUserNone() throws Exception {
+        mockMvc.perform(withRoles(
+                delete("/api/contacts/" + UUID.randomUUID() + "/comments/" + UUID.randomUUID()), List.of()))
+            .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void deleteTaskCommentForbiddenForUserNone() throws Exception {
+        mockMvc.perform(withRoles(
+                delete("/api/tasks/" + UUID.randomUUID() + "/comments/" + UUID.randomUUID()), List.of()))
             .andExpect(status().isForbidden());
     }
 

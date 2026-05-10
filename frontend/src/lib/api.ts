@@ -347,11 +347,8 @@ export async function getCompaniesForSelect(): Promise<CompanyDto[]> {
 
 // Company Comment API
 
-export async function getCompanyComments(
-  companyId: string,
-  page: number = 0,
-): Promise<Page<CommentDto>> {
-  const url = `${baseUrl()}/api/companies/${companyId}/comments?page=${page}&size=20&sort=createdAt,desc`;
+export async function getCompanyComments(companyId: string): Promise<CommentDto[]> {
+  const url = `${baseUrl()}/api/companies/${companyId}/comments`;
   const response = await apiFetch(url, { cache: "no-store" });
 
   if (!response.ok) {
@@ -380,13 +377,45 @@ export async function createCompanyComment(
   return response.json();
 }
 
+export async function updateCompanyComment(
+  companyId: string,
+  commentId: string,
+  data: CommentCreateDto,
+): Promise<CommentDto> {
+  const url = `${baseUrl()}/api/companies/${companyId}/comments/${commentId}`;
+  const response = await apiFetch(url, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(errorText || `Failed to update comment: ${response.status}`);
+  }
+
+  return response.json();
+}
+
+export async function deleteCompanyComment(companyId: string, commentId: string): Promise<void> {
+  const url = `${baseUrl()}/api/companies/${companyId}/comments/${commentId}`;
+  const response = await apiFetch(url, { method: "DELETE" });
+
+  if (response.status === 404) {
+    return;
+  }
+  if (response.status === 403) {
+    throw new ForbiddenError();
+  }
+  if (!response.ok) {
+    throw new Error(`Failed to delete comment: ${response.status}`);
+  }
+}
+
 // Contact Comment API
 
-export async function getContactComments(
-  contactId: string,
-  page: number = 0,
-): Promise<Page<CommentDto>> {
-  const url = `${baseUrl()}/api/contacts/${contactId}/comments?page=${page}&size=20&sort=createdAt,desc`;
+export async function getContactComments(contactId: string): Promise<CommentDto[]> {
+  const url = `${baseUrl()}/api/contacts/${contactId}/comments`;
   const response = await apiFetch(url, { cache: "no-store" });
 
   if (!response.ok) {
@@ -415,18 +444,38 @@ export async function createContactComment(
   return response.json();
 }
 
-export async function deleteComment(commentId: string): Promise<void> {
-  const url = `${baseUrl()}/api/comments/${commentId}`;
+export async function updateContactComment(
+  contactId: string,
+  commentId: string,
+  data: CommentCreateDto,
+): Promise<CommentDto> {
+  const url = `${baseUrl()}/api/contacts/${contactId}/comments/${commentId}`;
+  const response = await apiFetch(url, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(errorText || `Failed to update contact comment: ${response.status}`);
+  }
+
+  return response.json();
+}
+
+export async function deleteContactComment(contactId: string, commentId: string): Promise<void> {
+  const url = `${baseUrl()}/api/contacts/${contactId}/comments/${commentId}`;
   const response = await apiFetch(url, { method: "DELETE" });
 
   if (response.status === 404) {
-    return; // Comment already deleted
+    return;
   }
   if (response.status === 403) {
     throw new ForbiddenError();
   }
   if (!response.ok) {
-    throw new Error(`Failed to delete comment: ${response.status}`);
+    throw new Error(`Failed to delete contact comment: ${response.status}`);
   }
 }
 
@@ -647,11 +696,8 @@ export async function updateTask(id: string, data: TaskUpdateDto): Promise<TaskD
 
 // Task Comment API
 
-export async function getTaskComments(
-  taskId: string,
-  page: number = 0,
-): Promise<Page<CommentDto>> {
-  const url = `${baseUrl()}/api/tasks/${taskId}/comments?page=${page}&size=20&sort=createdAt,desc`;
+export async function getTaskComments(taskId: string): Promise<CommentDto[]> {
+  const url = `${baseUrl()}/api/tasks/${taskId}/comments`;
   const response = await apiFetch(url, { cache: "no-store" });
 
   if (!response.ok) {
@@ -678,6 +724,41 @@ export async function createTaskComment(
   }
 
   return response.json();
+}
+
+export async function updateTaskComment(
+  taskId: string,
+  commentId: string,
+  data: CommentCreateDto,
+): Promise<CommentDto> {
+  const url = `${baseUrl()}/api/tasks/${taskId}/comments/${commentId}`;
+  const response = await apiFetch(url, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(errorText || `Failed to update task comment: ${response.status}`);
+  }
+
+  return response.json();
+}
+
+export async function deleteTaskComment(taskId: string, commentId: string): Promise<void> {
+  const url = `${baseUrl()}/api/tasks/${taskId}/comments/${commentId}`;
+  const response = await apiFetch(url, { method: "DELETE" });
+
+  if (response.status === 404) {
+    return;
+  }
+  if (response.status === 403) {
+    throw new ForbiddenError();
+  }
+  if (!response.ok) {
+    throw new Error(`Failed to delete task comment: ${response.status}`);
+  }
 }
 
 export async function deleteTask(id: string): Promise<void> {

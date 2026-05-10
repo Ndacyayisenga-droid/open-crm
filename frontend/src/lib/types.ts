@@ -44,10 +44,7 @@ export interface CompanyCreateDto {
 export interface CommentDto {
   readonly id: string;
   readonly text: string;
-  readonly author: string;
-  readonly companyId: string | null;
-  readonly contactId: string | null;
-  readonly taskId: string | null;
+  readonly author: UserDto | null;
   readonly createdAt: string;
   readonly updatedAt: string;
 }

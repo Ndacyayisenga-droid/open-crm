@@ -22,6 +22,7 @@ vi.mock("@/lib/api", () => ({
   deleteCompany: (...args: unknown[]) => mockDeleteCompany(...args),
   getCompanyComments: (...args: unknown[]) => mockGetCompanyComments(...args),
   createCompanyComment: vi.fn(),
+  deleteCompanyComment: vi.fn(),
   getCompanyLogoUrl: (...args: unknown[]) => mockGetCompanyLogoUrl(...args),
 }));
 
@@ -51,15 +52,7 @@ const testCompany: CompanyDto = {
 };
 
 beforeEach(() => {
-  mockGetCompanyComments.mockResolvedValue({
-    content: [],
-    page: {
-      size: 20,
-      number: 0,
-      totalElements: 0,
-      totalPages: 0,
-    },
-  });
+  mockGetCompanyComments.mockResolvedValue([]);
 });
 
 afterEach(() => {

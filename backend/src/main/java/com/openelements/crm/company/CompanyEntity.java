@@ -3,6 +3,7 @@ package com.openelements.crm.company;
 import com.openelements.spring.base.data.AbstractEntity;
 import com.openelements.spring.base.data.image.EntityWithImage;
 import com.openelements.spring.base.data.image.ImageData;
+import com.openelements.spring.base.services.comment.CommentEntity;
 import com.openelements.spring.base.services.tag.TagEntity;
 import jakarta.persistence.Basic;
 import jakarta.persistence.Column;
@@ -11,6 +12,7 @@ import jakarta.persistence.FetchType;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.JoinTable;
 import jakarta.persistence.ManyToMany;
+import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
 import org.hibernate.annotations.OnDelete;
 import org.hibernate.annotations.OnDeleteAction;
@@ -86,6 +88,14 @@ public class CompanyEntity extends AbstractEntity implements EntityWithImage {
     )
     @OnDelete(action = OnDeleteAction.CASCADE)
     private Set<TagEntity> tags = new HashSet<>();
+
+    @OneToMany(fetch = FetchType.EAGER)
+    @JoinTable(
+        name = "company_comments",
+        joinColumns = @JoinColumn(name = "company_id"),
+        inverseJoinColumns = @JoinColumn(name = "comment_id", unique = true)
+    )
+    private Set<CommentEntity> comments = new HashSet<>();
 
     /**
      * Default constructor required by JPA.
@@ -315,6 +325,14 @@ public class CompanyEntity extends AbstractEntity implements EntityWithImage {
 
     public void setTags(final Set<TagEntity> tags) {
         this.tags = tags;
+    }
+
+    public Set<CommentEntity> getComments() {
+        return comments;
+    }
+
+    public void setComments(final Set<CommentEntity> comments) {
+        this.comments = comments;
     }
 
     public String getDescription() {

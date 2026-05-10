@@ -1,12 +1,15 @@
 package com.openelements.crm.contact;
 
-import com.openelements.crm.comment.CommentRepository;
 import com.openelements.crm.company.CompanyEntity;
 import com.openelements.crm.company.CompanyRepository;
-import com.openelements.crm.task.TaskRepository;
 import com.openelements.spring.base.data.AbstractDbBackedDataService;
 import com.openelements.spring.base.data.EntityRepository;
 import com.openelements.spring.base.data.image.ImageData;
+import com.openelements.spring.base.services.comment.CommentCreateDto;
+import com.openelements.spring.base.services.comment.CommentDto;
+import com.openelements.spring.base.services.comment.CommentEntity;
+import com.openelements.spring.base.services.comment.CommentRepository;
+import com.openelements.spring.base.services.comment.CommentService;
 import com.openelements.spring.base.services.tag.TagEntity;
 import com.openelements.spring.base.services.tag.TagRepository;
 import jakarta.persistence.criteria.Join;
@@ -22,6 +25,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -38,20 +42,22 @@ public class ContactService extends AbstractDbBackedDataService<ContactEntity, C
 
     private final ContactRepository contactRepository;
     private final CompanyRepository companyRepository;
+    private final CommentService commentService;
     private final CommentRepository commentRepository;
     private final TagRepository tagRepository;
 
     public ContactService(final ContactRepository contactRepository,
                           final CompanyRepository companyRepository,
+                          final CommentService commentService,
                           final CommentRepository commentRepository,
-                          final TaskRepository taskRepository,
                           final TagRepository tagRepository,
                           final ApplicationEventPublisher eventPublisher) {
         super((eventPublisher));
         this.contactRepository = Objects.requireNonNull(contactRepository, "contactRepository must not be null");
         this.companyRepository = Objects.requireNonNull(companyRepository, "companyRepository must not be null");
+        this.commentService = Objects.requireNonNull(commentService, "commentService must not be null");
         this.commentRepository = Objects.requireNonNull(commentRepository, "commentRepository must not be null");
-        this.tagRepository = Objects.requireNonNull(tagRepository, "tagService must not be null");
+        this.tagRepository = Objects.requireNonNull(tagRepository, "tagRepository must not be null");
     }
 
     /**
@@ -266,6 +272,75 @@ public class ContactService extends AbstractDbBackedDataService<ContactEntity, C
         contactRepository.saveAndFlush(entity);
     }
 
+    /**
+     * Lists comments attached to a contact.
+     */
+    @Transactional(readOnly = true)
+    public List<CommentDto> listCommentsOfContact(final UUID contactId) {
+        Objects.requireNonNull(contactId, "contactId must not be null");
+        final ContactEntity contact = contactRepository.findById(contactId)
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Contact not found"));
+        return contact.getComments().stream()
+            .map(c -> commentService.findById(c.getId()).orElseThrow())
+            .sorted((a, b) -> b.createdAt().compareTo(a.createdAt()))
+            .toList();
+    }
+
+    public CommentDto addCommentToContact(final UUID contactId, final CommentCreateDto request) {
+        Objects.requireNonNull(contactId, "contactId must not be null");
+        Objects.requireNonNull(request, "request must not be null");
+        final ContactEntity contact = contactRepository.findById(contactId)
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Contact not found"));
+        final CommentDto saved = commentService.save(new CommentDto(null, request.text(), null, null, null));
+        final CommentEntity entity = commentRepository.findByIdOrThrow(saved.id());
+        contact.getComments().add(entity);
+        contactRepository.save(contact);
+        return saved;
+    }
+
+    public CommentDto updateCommentOfContact(final UUID contactId, final UUID commentId, final CommentCreateDto request) {
+        Objects.requireNonNull(contactId, "contactId must not be null");
+        Objects.requireNonNull(commentId, "commentId must not be null");
+        Objects.requireNonNull(request, "request must not be null");
+        assertCommentBelongsToContact(contactId, commentId);
+        final CommentDto current = commentService.findById(commentId)
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Comment not found"));
+        return commentService.save(new CommentDto(commentId, request.text(), current.author(), current.createdAt(), current.updatedAt()));
+    }
+
+    public void deleteCommentOfContact(final UUID contactId, final UUID commentId) {
+        Objects.requireNonNull(contactId, "contactId must not be null");
+        Objects.requireNonNull(commentId, "commentId must not be null");
+        assertCommentBelongsToContact(contactId, commentId);
+        final ContactEntity contact = contactRepository.findByIdOrThrow(contactId);
+        contact.getComments().removeIf(c -> c.getId().equals(commentId));
+        contactRepository.saveAndFlush(contact);
+        commentService.delete(commentId);
+    }
+
+    private void assertCommentBelongsToContact(final UUID contactId, final UUID commentId) {
+        final ContactEntity contact = contactRepository.findById(contactId)
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Contact not found"));
+        final boolean belongs = contact.getComments().stream()
+            .anyMatch(c -> c.getId().equals(commentId));
+        if (!belongs) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Comment not found for this contact");
+        }
+    }
+
+    @Override
+    public void delete(final UUID id) {
+        Objects.requireNonNull(id, "id must not be null");
+        final ContactEntity contact = contactRepository.findById(id)
+            .orElseThrow(() -> new IllegalArgumentException("Contact not found: " + id));
+        final List<UUID> commentIds = new ArrayList<>(
+            contact.getComments().stream().map(CommentEntity::getId).toList());
+        contact.getComments().clear();
+        contactRepository.saveAndFlush(contact);
+        commentIds.forEach(commentService::delete);
+        super.delete(toData(contact));
+    }
+
     @Override
     protected ContactEntity createDetachedEntity() {
         return new ContactEntity();
@@ -316,7 +391,7 @@ public class ContactService extends AbstractDbBackedDataService<ContactEntity, C
 
     @Override
     protected ContactDto toData(ContactEntity entity) {
-        final long commentCount = commentRepository.countByContactId(entity.getId());
+        final long commentCount = entity.getComments().size();
         final UUID companyId = entity.getCompany() != null ? entity.getCompany().getId() : null;
         final String companyName = entity.getCompany() != null ? entity.getCompany().getName() : null;
         final List<UUID> tagIds = entity.getTags().stream()

@@ -1,9 +1,7 @@
 package com.openelements.crm.contact;
 
-import com.openelements.crm.comment.CommentCreateDto;
-import com.openelements.crm.comment.CommentDto;
-import com.openelements.crm.comment.CommentService;
-import com.openelements.spring.base.security.user.UserService;
+import com.openelements.spring.base.services.comment.CommentCreateDto;
+import com.openelements.spring.base.services.comment.CommentDto;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -15,7 +13,6 @@ import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVPrinter;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -49,31 +46,11 @@ import java.util.UUID;
 public class ContactController {
 
     private final ContactService contactService;
-    private final CommentService commentService;
-    private final UserService userService;
 
-    /**
-     * Creates a new ContactController.
-     *
-     * @param contactService the contact service
-     * @param commentService the comment service
-     */
-    public ContactController(final ContactService contactService, final CommentService commentService, UserService userService) {
+    public ContactController(final ContactService contactService) {
         this.contactService = Objects.requireNonNull(contactService, "contactService must not be null");
-        this.commentService = Objects.requireNonNull(commentService, "commentService must not be null");
-        this.userService = Objects.requireNonNull(userService, "userService must not be null");
     }
 
-    /**
-     * Lists contacts with pagination, filtering, and sorting.
-     *
-     * @param search    multi-word search across firstName, lastName, email, and company name
-     * @param companyId exact company ID filter
-     * @param language  exact language filter
-     * @param brevo     filter by Brevo origin (true = only Brevo, false = only non-Brevo, null = all)
-     * @param pageable  pagination and sorting parameters
-     * @return a page of contact responses
-     */
     @GetMapping(produces = MediaType.APPLICATION_JSON_VALUE)
     @Operation(summary = "List contacts", description = "Returns a paginated list of contacts with optional filtering")
     public Page<ContactDto> list(
@@ -94,16 +71,6 @@ public class ContactController {
         return contactService.list(search, companyId, noCompany, language, brevo, tagIds, pageable);
     }
 
-    /**
-     * Exports contacts as CSV with selected columns.
-     *
-     * @param search    multi-word search filter
-     * @param companyId exact company ID filter
-     * @param language  exact language filter
-     * @param brevo     filter by Brevo origin
-     * @param columns   list of columns to include
-     * @param response  the HTTP response to write CSV to
-     */
     @GetMapping(value = "/export", produces = "text/csv")
     @Operation(summary = "Export contacts as CSV")
     @ApiResponse(responseCode = "200", description = "CSV file downloaded")
@@ -132,12 +99,6 @@ public class ContactController {
         }
     }
 
-    /**
-     * Returns a contact by its ID.
-     *
-     * @param id the contact ID
-     * @return the contact response
-     */
     @GetMapping(value = "/{id}", produces = MediaType.APPLICATION_JSON_VALUE)
     @Operation(summary = "Get contact by ID")
     @ApiResponse(responseCode = "200", description = "Contact found")
@@ -146,12 +107,6 @@ public class ContactController {
         return contactService.findById(id).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
     }
 
-    /**
-     * Creates a new contact.
-     *
-     * @param request the create request
-     * @return the created contact response
-     */
     @PostMapping(consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
     @ResponseStatus(HttpStatus.CREATED)
     @Operation(summary = "Create a new contact")
@@ -184,13 +139,6 @@ public class ContactController {
         return contactService.save(dto);
     }
 
-    /**
-     * Updates an existing contact.
-     *
-     * @param id      the contact ID
-     * @param request the update request
-     * @return the updated contact response
-     */
     @PutMapping(value = "/{id}", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
     @Operation(summary = "Update a contact")
     @ApiResponse(responseCode = "200", description = "Contact updated")
@@ -224,11 +172,6 @@ public class ContactController {
         return contactService.save(dto);
     }
 
-    /**
-     * Hard-deletes a contact and all associated comments.
-     *
-     * @param id the contact ID
-     */
     @DeleteMapping("/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     @RequiresAdmin
@@ -240,12 +183,6 @@ public class ContactController {
         contactService.delete(id);
     }
 
-    /**
-     * Uploads or replaces the photo for a contact.
-     *
-     * @param id   the contact ID
-     * @param file the image file (JPEG only)
-     */
     @PostMapping(value = "/{id}/photo", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @Operation(summary = "Upload contact photo")
     @ApiResponse(responseCode = "200", description = "Photo uploaded")
@@ -260,12 +197,6 @@ public class ContactController {
         }
     }
 
-    /**
-     * Returns the photo for a contact as binary data.
-     *
-     * @param id the contact ID
-     * @return the photo binary data with correct content type
-     */
     @GetMapping(value = "/{id}/photo")
     @Operation(summary = "Get contact photo")
     @ApiResponse(responseCode = "200", description = "Photo found")
@@ -276,11 +207,6 @@ public class ContactController {
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
     }
 
-    /**
-     * Removes the photo from a contact.
-     *
-     * @param id the contact ID
-     */
     @DeleteMapping("/{id}/photo")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     @RequiresAdmin
@@ -293,30 +219,17 @@ public class ContactController {
     }
 
     /**
-     * Lists comments for a contact, sorted by creation date descending.
-     *
-     * @param id       the contact ID
-     * @param pageable pagination parameters
-     * @return a page of comment responses
+     * Lists comments attached to a contact. Returns a flat array sorted by createdAt descending.
      */
     @GetMapping(value = "/{id}/comments", produces = MediaType.APPLICATION_JSON_VALUE)
     @Operation(summary = "List comments for a contact")
     @ApiResponse(responseCode = "200", description = "Comments found")
     @ApiResponse(responseCode = "404", description = "Contact not found")
-    public Page<CommentDto> listComments(
-        @Parameter(description = "The contact ID") @PathVariable final UUID id,
-        @Parameter(hidden = true)
-        @PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.DESC) final Pageable pageable) {
-        return commentService.listByContact(id, pageable);
+    public List<CommentDto> listComments(
+        @Parameter(description = "The contact ID") @PathVariable final UUID id) {
+        return contactService.listCommentsOfContact(id);
     }
 
-    /**
-     * Adds a comment to a contact.
-     *
-     * @param id      the contact ID
-     * @param request the comment create request
-     * @return the created comment response
-     */
     @PostMapping(value = "/{id}/comments", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
     @ResponseStatus(HttpStatus.CREATED)
     @Operation(summary = "Add a comment to a contact")
@@ -325,14 +238,29 @@ public class ContactController {
     @ApiResponse(responseCode = "404", description = "Contact not found")
     public CommentDto addComment(@Parameter(description = "The contact ID") @PathVariable final UUID id,
                                  @Valid @RequestBody final CommentCreateDto request) {
-        final CommentDto commentDto = new CommentDto(null,
-            request.text(),
-            userService.getCurrentUser().name(),
-            null,
-            id,
-            null,
-            null,
-            null);
-        return commentService.save(commentDto);
+        return contactService.addCommentToContact(id, request);
+    }
+
+    @PutMapping(value = "/{id}/comments/{commentId}", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
+    @Operation(summary = "Update a comment of a contact")
+    @ApiResponse(responseCode = "200", description = "Comment updated")
+    @ApiResponse(responseCode = "400", description = "Invalid request")
+    @ApiResponse(responseCode = "404", description = "Contact or comment not found, or mismatched owner")
+    public CommentDto updateComment(@Parameter(description = "The contact ID") @PathVariable final UUID id,
+                                    @Parameter(description = "The comment ID") @PathVariable final UUID commentId,
+                                    @Valid @RequestBody final CommentCreateDto request) {
+        return contactService.updateCommentOfContact(id, commentId, request);
+    }
+
+    @DeleteMapping("/{id}/comments/{commentId}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    @RequiresAdmin
+    @Operation(summary = "Delete a comment of a contact")
+    @ApiResponse(responseCode = "204", description = "Comment deleted")
+    @ApiResponse(responseCode = "403", description = "Missing ADMIN role")
+    @ApiResponse(responseCode = "404", description = "Contact or comment not found, or mismatched owner")
+    public void deleteComment(@Parameter(description = "The contact ID") @PathVariable final UUID id,
+                              @Parameter(description = "The comment ID") @PathVariable final UUID commentId) {
+        contactService.deleteCommentOfContact(id, commentId);
     }
 }
