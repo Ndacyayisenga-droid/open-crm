@@ -6,7 +6,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import com.openelements.crm.apikey.ApiKeyController;
 import com.openelements.crm.auditlog.AuditLogController;
 import com.openelements.crm.brevo.BrevoSyncController;
-import com.openelements.crm.comment.CommentController;
 import com.openelements.crm.company.CompanyController;
 import com.openelements.crm.contact.ContactController;
 import com.openelements.crm.tag.TagController;
@@ -36,6 +35,24 @@ class PreAuthorizeAnnotationTest {
     }
 
     @Test
+    void companyDeleteCommentRequiresAdmin() throws NoSuchMethodException {
+        assertHasRequiresAdmin(CompanyController.class.getDeclaredMethod(
+            "deleteComment", UUID.class, UUID.class));
+    }
+
+    @Test
+    void contactDeleteCommentRequiresAdmin() throws NoSuchMethodException {
+        assertHasRequiresAdmin(ContactController.class.getDeclaredMethod(
+            "deleteComment", UUID.class, UUID.class));
+    }
+
+    @Test
+    void taskDeleteCommentRequiresAdmin() throws NoSuchMethodException {
+        assertHasRequiresAdmin(TaskController.class.getDeclaredMethod(
+            "deleteComment", UUID.class, UUID.class));
+    }
+
+    @Test
     void companyDeleteLogoRequiresAdmin() throws NoSuchMethodException {
         assertHasRequiresAdmin(CompanyController.class.getDeclaredMethod(
             "deleteLogo", UUID.class));
@@ -62,12 +79,6 @@ class PreAuthorizeAnnotationTest {
     @Test
     void tagDeleteRequiresAdmin() throws NoSuchMethodException {
         assertHasRequiresAdmin(TagController.class.getDeclaredMethod(
-            "delete", UUID.class));
-    }
-
-    @Test
-    void commentDeleteRequiresAdmin() throws NoSuchMethodException {
-        assertHasRequiresAdmin(CommentController.class.getDeclaredMethod(
             "delete", UUID.class));
     }
 

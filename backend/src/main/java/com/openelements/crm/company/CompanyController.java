@@ -1,11 +1,9 @@
 package com.openelements.crm.company;
 
-import com.openelements.crm.comment.CommentCreateDto;
-import com.openelements.crm.comment.CommentDto;
-import com.openelements.crm.comment.CommentService;
 import com.openelements.crm.contact.ContactService;
 import com.openelements.spring.base.data.image.ImageData;
-import com.openelements.spring.base.security.user.UserService;
+import com.openelements.spring.base.services.comment.CommentCreateDto;
+import com.openelements.spring.base.services.comment.CommentDto;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -17,7 +15,6 @@ import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVPrinter;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -51,31 +48,15 @@ import java.util.UUID;
 public class CompanyController {
 
     private final CompanyService companyService;
-    private final CommentService commentService;
     private final ContactService contactService;
-    private final UserService userService;
 
-    /**
-     * Creates a new CompanyController.
-     *
-     * @param companyService the company service
-     * @param commentService the comment service
-     */
-    public CompanyController(final CompanyService companyService, final CommentService commentService, ContactService contactService, UserService userService) {
+    public CompanyController(final CompanyService companyService, final ContactService contactService) {
         this.companyService = Objects.requireNonNull(companyService, "companyService must not be null");
-        this.commentService = Objects.requireNonNull(commentService, "commentService must not be null");
         this.contactService = Objects.requireNonNull(contactService, "contactService must not be null");
-        this.userService = Objects.requireNonNull(userService, "userService must not be null");
     }
 
     /**
      * Lists companies with pagination, filtering, and sorting.
-     *
-     * @param name     partial name filter (case-insensitive)
-     * @param brevo    filter by Brevo origin (true = only Brevo, false = only non-Brevo, null = all)
-     * @param tagIds   filter by tag IDs (AND semantics)
-     * @param pageable pagination and sorting parameters
-     * @return a page of company responses
      */
     @GetMapping(produces = MediaType.APPLICATION_JSON_VALUE)
     @Operation(summary = "List companies", description = "Returns a paginated list of companies with optional filtering")
@@ -93,12 +74,6 @@ public class CompanyController {
 
     /**
      * Exports companies as CSV with selected columns.
-     *
-     * @param name     partial name filter
-     * @param brevo    filter by Brevo origin
-     * @param tagIds   filter by tag IDs
-     * @param columns  list of columns to include
-     * @param response the HTTP response to write CSV to
      */
     @GetMapping(value = "/export", produces = "text/csv")
     @Operation(summary = "Export companies as CSV")
@@ -125,12 +100,6 @@ public class CompanyController {
         }
     }
 
-    /**
-     * Returns a company by its ID.
-     *
-     * @param id the company ID
-     * @return the company response
-     */
     @GetMapping(value = "/{id}", produces = MediaType.APPLICATION_JSON_VALUE)
     @Operation(summary = "Get company by ID")
     @ApiResponse(responseCode = "200", description = "Company found")
@@ -139,12 +108,6 @@ public class CompanyController {
         return companyService.findById(id).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Company not found"));
     }
 
-    /**
-     * Creates a new company.
-     *
-     * @param request the create request
-     * @return the created company response
-     */
     @PostMapping(consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
     @ResponseStatus(HttpStatus.CREATED)
     @Operation(summary = "Create a new company")
@@ -176,13 +139,6 @@ public class CompanyController {
         return companyService.save(dto);
     }
 
-    /**
-     * Updates an existing company.
-     *
-     * @param id      the company ID
-     * @param request the update request
-     * @return the updated company response
-     */
     @PutMapping(value = "/{id}", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
     @Operation(summary = "Update a company")
     @ApiResponse(responseCode = "200", description = "Company updated")
@@ -216,12 +172,6 @@ public class CompanyController {
         return companyService.save(dto);
     }
 
-    /**
-     * Hard-deletes a company. Optionally deletes all associated contacts.
-     *
-     * @param id             the company ID
-     * @param deleteContacts whether to also delete all associated contacts
-     */
     @DeleteMapping("/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     @RequiresAdmin
@@ -238,12 +188,6 @@ public class CompanyController {
         companyService.delete(id);
     }
 
-    /**
-     * Uploads or replaces the logo for a company.
-     *
-     * @param id   the company ID
-     * @param file the image file
-     */
     @PostMapping(value = "/{id}/logo", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @Operation(summary = "Upload company logo")
     @ApiResponse(responseCode = "200", description = "Logo uploaded")
@@ -259,12 +203,6 @@ public class CompanyController {
         }
     }
 
-    /**
-     * Returns the logo for a company as binary data.
-     *
-     * @param id the company ID
-     * @return the logo binary data with correct content type
-     */
     @GetMapping(value = "/{id}/logo")
     @Operation(summary = "Get company logo")
     @ApiResponse(responseCode = "200", description = "Logo found")
@@ -275,11 +213,6 @@ public class CompanyController {
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Company not found"));
     }
 
-    /**
-     * Removes the logo from a company.
-     *
-     * @param id the company ID
-     */
     @DeleteMapping("/{id}/logo")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     @RequiresAdmin
@@ -292,29 +225,19 @@ public class CompanyController {
     }
 
     /**
-     * Lists comments for a company, sorted by creation date descending.
-     *
-     * @param id       the company ID
-     * @param pageable pagination parameters
-     * @return a page of comment responses
+     * Lists comments attached to a company. Returns a flat array sorted by createdAt descending.
      */
     @GetMapping(value = "/{id}/comments", produces = MediaType.APPLICATION_JSON_VALUE)
     @Operation(summary = "List comments for a company")
     @ApiResponse(responseCode = "200", description = "Comments found")
     @ApiResponse(responseCode = "404", description = "Company not found")
-    public Page<CommentDto> listComments(
-        @Parameter(description = "The company ID") @PathVariable final UUID id,
-        @Parameter(hidden = true)
-        @PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.DESC) final Pageable pageable) {
-        return commentService.listByCompany(id, pageable);
+    public List<CommentDto> listComments(
+        @Parameter(description = "The company ID") @PathVariable final UUID id) {
+        return companyService.listCommentsOfCompany(id);
     }
 
     /**
      * Adds a comment to a company.
-     *
-     * @param id      the company ID
-     * @param request the comment create request
-     * @return the created comment response
      */
     @PostMapping(value = "/{id}/comments", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
     @ResponseStatus(HttpStatus.CREATED)
@@ -324,15 +247,35 @@ public class CompanyController {
     @ApiResponse(responseCode = "404", description = "Company not found")
     public CommentDto addComment(@Parameter(description = "The company ID") @PathVariable final UUID id,
                                  @Valid @RequestBody final CommentCreateDto request) {
-        CommentDto dto = new CommentDto(null,
-            request.text(),
-            userService.getCurrentUser().name(),
-            id,
-            null,
-            null,
-            null,
-            null
-        );
-        return commentService.save(dto);
+        return companyService.addCommentToCompany(id, request);
+    }
+
+    /**
+     * Updates a comment attached to a company.
+     */
+    @PutMapping(value = "/{id}/comments/{commentId}", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
+    @Operation(summary = "Update a comment of a company")
+    @ApiResponse(responseCode = "200", description = "Comment updated")
+    @ApiResponse(responseCode = "400", description = "Invalid request")
+    @ApiResponse(responseCode = "404", description = "Company or comment not found, or mismatched owner")
+    public CommentDto updateComment(@Parameter(description = "The company ID") @PathVariable final UUID id,
+                                    @Parameter(description = "The comment ID") @PathVariable final UUID commentId,
+                                    @Valid @RequestBody final CommentCreateDto request) {
+        return companyService.updateCommentOfCompany(id, commentId, request);
+    }
+
+    /**
+     * Deletes a comment attached to a company.
+     */
+    @DeleteMapping("/{id}/comments/{commentId}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    @RequiresAdmin
+    @Operation(summary = "Delete a comment of a company")
+    @ApiResponse(responseCode = "204", description = "Comment deleted")
+    @ApiResponse(responseCode = "403", description = "Missing ADMIN role")
+    @ApiResponse(responseCode = "404", description = "Company or comment not found, or mismatched owner")
+    public void deleteComment(@Parameter(description = "The company ID") @PathVariable final UUID id,
+                              @Parameter(description = "The comment ID") @PathVariable final UUID commentId) {
+        companyService.deleteCommentOfCompany(id, commentId);
     }
 }

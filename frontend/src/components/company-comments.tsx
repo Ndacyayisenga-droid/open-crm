@@ -7,7 +7,7 @@ import { Button, DeleteConfirmDialog, Tooltip, TooltipTrigger, TooltipContent, C
 import { useTranslations } from "@/lib/i18n";
 import { AddCommentDialog } from "@/components/add-comment-dialog";
 import { TranslateButton } from "@/components/translate-button";
-import { getCompanyComments, createCompanyComment, deleteComment, ForbiddenError } from "@/lib/api";
+import { getCompanyComments, createCompanyComment, deleteCompanyComment, ForbiddenError } from "@/lib/api";
 import type { CommentDto } from "@/lib/types";
 import { hasRole, ROLE_ADMIN } from "@/lib/roles";
 
@@ -36,37 +36,21 @@ export function CompanyComments({ companyId, totalCount }: CompanyCommentsProps)
   const [displayCount, setDisplayCount] = useState(totalCount);
   const [comments, setComments] = useState<CommentDto[]>([]);
   const [loading, setLoading] = useState(true);
-  const [page, setPage] = useState(0);
-  const [hasMore, setHasMore] = useState(false);
-  const [loadingMore, setLoadingMore] = useState(false);
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [sending, setSending] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
 
-  const fetchComments = useCallback(async (pageNum: number, append: boolean) => {
-    if (append) {
-      setLoadingMore(true);
-    } else {
-      setLoading(true);
-    }
+  const fetchComments = useCallback(async () => {
+    setLoading(true);
     try {
-      const result = await getCompanyComments(companyId, pageNum);
-      if (append) {
-        setComments((prev) => [...prev, ...result.content]);
-      } else {
-        setComments([...result.content]);
-      }
-      setHasMore(result.page.number < result.page.totalPages - 1);
-      setPage(pageNum);
+      const result = await getCompanyComments(companyId);
+      setComments(result);
     } catch {
-      if (!append) {
-        setComments([]);
-      }
+      setComments([]);
     } finally {
       setLoading(false);
-      setLoadingMore(false);
     }
   }, [companyId]);
 
@@ -75,7 +59,7 @@ export function CompanyComments({ companyId, totalCount }: CompanyCommentsProps)
   }, [totalCount]);
 
   useEffect(() => {
-    fetchComments(0, false);
+    fetchComments();
   }, [fetchComments]);
 
   const handleSend = async (text: string) => {
@@ -89,14 +73,10 @@ export function CompanyComments({ companyId, totalCount }: CompanyCommentsProps)
     }
   };
 
-  const handleLoadMore = () => {
-    fetchComments(page + 1, true);
-  };
-
   const handleDelete = async () => {
     if (!deleteTarget) return;
     try {
-      await deleteComment(deleteTarget);
+      await deleteCompanyComment(companyId, deleteTarget);
       setComments((prev) => prev.filter((c) => c.id !== deleteTarget));
       setDisplayCount((prev) => (prev !== undefined && prev > 0 ? prev - 1 : prev));
       setDeleteTarget(null);
@@ -149,7 +129,7 @@ export function CompanyComments({ companyId, totalCount }: CompanyCommentsProps)
               <div key={comment.id} className="border-b border-oe-gray-light pb-4 last:border-b-0">
                 <div className="flex items-start justify-between">
                   <p className="text-xs text-oe-gray-mid">
-                    {comment.author} &middot; {formatDate(comment.createdAt, "de")}
+                    {comment.author?.name ?? "—"} &middot; {formatDate(comment.createdAt, "de")}
                   </p>
                   <div className="flex items-center">
                     <TranslateButton text={comment.text} size="md" />
@@ -175,20 +155,6 @@ export function CompanyComments({ companyId, totalCount }: CompanyCommentsProps)
                 </div>
               </div>
             ))}
-          </div>
-        )}
-
-        {/* Load more */}
-        {!loading && hasMore && (
-          <div className="mt-4 flex justify-center">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleLoadMore}
-              disabled={loadingMore}
-            >
-              {S.loadMore}
-            </Button>
           </div>
         )}
       </CardContent>

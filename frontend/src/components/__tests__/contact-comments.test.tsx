@@ -3,7 +3,7 @@ import { screen, cleanup, fireEvent, waitFor } from "@testing-library/react";
 import { ContactComments } from "@/components/contact-comments";
 import { de } from "@/lib/i18n/de";
 import { renderWithProviders } from "@/test/test-utils";
-import type { CommentDto, Page } from "@/lib/types";
+import type { CommentDto } from "@/lib/types";
 
 const S = de.companies.comments;
 
@@ -13,6 +13,7 @@ const mockCreateContactComment = vi.fn();
 vi.mock("@/lib/api", () => ({
   getContactComments: (...args: unknown[]) => mockGetContactComments(...args),
   createContactComment: (...args: unknown[]) => mockCreateContactComment(...args),
+  deleteContactComment: vi.fn(),
   getTranslationSettings: vi.fn().mockResolvedValue({ configured: false }),
 }));
 
@@ -42,25 +43,17 @@ function makeComment(overrides: Partial<CommentDto> = {}): CommentDto {
   return {
     id: "comment-1",
     text: "Test comment",
-    author: "UNKNOWN",
-    companyId: null,
-    contactId: "contact-1",
-    taskId: null,
+    author: {
+      id: "user-1",
+      name: "Tester",
+      email: "tester@example.com",
+      avatarUrl: null,
+      createdAt: "2026-03-01T00:00:00Z",
+      updatedAt: "2026-03-01T00:00:00Z",
+    },
     createdAt: "2026-03-27T15:30:00Z",
     updatedAt: "2026-03-27T15:30:00Z",
     ...overrides,
-  };
-}
-
-function makePage(comments: CommentDto[], last: boolean = true): Page<CommentDto> {
-  return {
-    content: comments,
-    page: {
-      size: 20,
-      number: 0,
-      totalElements: comments.length,
-      totalPages: last ? 1 : 2,
-    },
   };
 }
 
@@ -72,7 +65,7 @@ afterEach(() => {
 describe("ContactComments", () => {
   describe("comment count live update", () => {
     it("should show totalCount in heading", async () => {
-      mockGetContactComments.mockResolvedValue(makePage([]));
+      mockGetContactComments.mockResolvedValue([]);
 
       renderWithProviders(<ContactComments contactId="contact-1" totalCount={2} />);
 
@@ -82,7 +75,7 @@ describe("ContactComments", () => {
     });
 
     it("should increment count after adding a comment", async () => {
-      mockGetContactComments.mockResolvedValue(makePage([]));
+      mockGetContactComments.mockResolvedValue([]);
       mockCreateContactComment.mockResolvedValue(
         makeComment({ id: "new", text: "New comment" }),
       );
@@ -110,7 +103,7 @@ describe("ContactComments", () => {
     });
 
     it("should not increment count on API failure", async () => {
-      mockGetContactComments.mockResolvedValue(makePage([]));
+      mockGetContactComments.mockResolvedValue([]);
       mockCreateContactComment.mockRejectedValue(new Error("Server error"));
 
       renderWithProviders(<ContactComments contactId="contact-1" totalCount={2} />);
@@ -138,7 +131,7 @@ describe("ContactComments", () => {
     });
 
     it("should not show count when totalCount is undefined", async () => {
-      mockGetContactComments.mockResolvedValue(makePage([]));
+      mockGetContactComments.mockResolvedValue([]);
       mockCreateContactComment.mockResolvedValue(
         makeComment({ id: "new", text: "New comment" }),
       );
@@ -170,7 +163,7 @@ describe("ContactComments", () => {
     });
 
     it("should reset count when totalCount prop changes", async () => {
-      mockGetContactComments.mockResolvedValue(makePage([]));
+      mockGetContactComments.mockResolvedValue([]);
       mockCreateContactComment.mockResolvedValue(
         makeComment({ id: "new", text: "New comment" }),
       );
@@ -183,7 +176,6 @@ describe("ContactComments", () => {
         expect(screen.getByText(`${S.title} (2)`)).toBeInTheDocument();
       });
 
-      // Add a comment to increment to 3
       fireEvent.click(screen.getByText(S.add));
       await waitFor(() => {
         expect(screen.getByPlaceholderText(S.placeholder)).toBeInTheDocument();
@@ -196,7 +188,6 @@ describe("ContactComments", () => {
         expect(screen.getByText(`${S.title} (3)`)).toBeInTheDocument();
       });
 
-      // Simulate navigation to a different contact by changing the prop
       rerender(
         <ContactComments contactId="contact-2" totalCount={0} />,
       );

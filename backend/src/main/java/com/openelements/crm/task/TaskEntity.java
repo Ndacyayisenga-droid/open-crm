@@ -3,6 +3,7 @@ package com.openelements.crm.task;
 import com.openelements.crm.company.CompanyEntity;
 import com.openelements.crm.contact.ContactEntity;
 import com.openelements.spring.base.data.AbstractEntity;
+import com.openelements.spring.base.services.comment.CommentEntity;
 import com.openelements.spring.base.services.tag.TagEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -13,6 +14,7 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.JoinTable;
 import jakarta.persistence.ManyToMany;
 import jakarta.persistence.ManyToOne;
+import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
 import org.hibernate.annotations.OnDelete;
 import org.hibernate.annotations.OnDeleteAction;
@@ -52,6 +54,14 @@ public class TaskEntity extends AbstractEntity {
     )
     @OnDelete(action = OnDeleteAction.CASCADE)
     private Set<TagEntity> tags = new HashSet<>();
+
+    @OneToMany(fetch = FetchType.EAGER)
+    @JoinTable(
+        name = "task_comments",
+        joinColumns = @JoinColumn(name = "task_id"),
+        inverseJoinColumns = @JoinColumn(name = "comment_id", unique = true)
+    )
+    private Set<CommentEntity> comments = new HashSet<>();
 
 
     public TaskEntity() {
@@ -106,6 +116,14 @@ public class TaskEntity extends AbstractEntity {
 
     public void setTags(final Set<TagEntity> tags) {
         this.tags = tags;
+    }
+
+    public Set<CommentEntity> getComments() {
+        return comments;
+    }
+
+    public void setComments(final Set<CommentEntity> comments) {
+        this.comments = comments;
     }
 
     @Override

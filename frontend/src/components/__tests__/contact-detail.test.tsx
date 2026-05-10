@@ -22,6 +22,7 @@ vi.mock("@/lib/api", () => ({
   deleteContact: (...args: unknown[]) => mockDeleteContact(...args),
   getContactComments: (...args: unknown[]) => mockGetContactComments(...args),
   createContactComment: vi.fn(),
+  deleteContactComment: vi.fn(),
   getContactPhotoUrl: (...args: unknown[]) => mockGetContactPhotoUrl(...args),
 }));
 
@@ -53,15 +54,7 @@ function makeContact(overrides: Partial<ContactDto> = {}): ContactDto {
 }
 
 beforeEach(() => {
-  mockGetContactComments.mockResolvedValue({
-    content: [],
-    page: {
-      size: 20,
-      number: 0,
-      totalElements: 0,
-      totalPages: 0,
-    },
-  });
+  mockGetContactComments.mockResolvedValue([]);
 });
 
 afterEach(() => {
