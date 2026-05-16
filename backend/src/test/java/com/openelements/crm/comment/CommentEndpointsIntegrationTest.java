@@ -17,7 +17,7 @@ import com.openelements.crm.contact.ContactRepository;
 import com.openelements.crm.task.TaskEntity;
 import com.openelements.crm.task.TaskRepository;
 import com.openelements.crm.task.TaskStatus;
-import com.openelements.crm.user.SystemUser;
+import com.openelements.spring.base.security.user.SystemUser;
 import com.openelements.spring.base.security.user.UserRepository;
 import com.openelements.spring.base.services.comment.CommentDto;
 import com.openelements.spring.base.services.comment.CommentRepository;
@@ -86,7 +86,7 @@ class CommentEndpointsIntegrationTest {
         if (userRepository.findBySub(SystemUser.SUB).isEmpty()) {
             jdbcTemplate.update(
                 "INSERT INTO users (id, sub, name, created_at, updated_at) VALUES (?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)",
-                SystemUser.ID, SystemUser.SUB, "System");
+                SystemUser.ID, SystemUser.SUB, SystemUser.NAME);
         }
     }
 
@@ -458,7 +458,7 @@ class CommentEndpointsIntegrationTest {
 
         transactionTemplate.executeWithoutResult(status -> {
             final var entity = commentRepository.findByIdOrThrow(commentId);
-            entity.setAuthorId(SystemUser.ID.toString());
+            entity.setAuthor(userRepository.getReferenceById(SystemUser.ID));
             commentRepository.saveAndFlush(entity);
         });
 

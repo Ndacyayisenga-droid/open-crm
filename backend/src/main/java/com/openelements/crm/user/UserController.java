@@ -1,6 +1,7 @@
 package com.openelements.crm.user;
 
 import com.openelements.crm.security.RequiresItAdmin;
+import com.openelements.spring.base.security.user.SystemUser;
 import com.openelements.spring.base.security.user.UserDto;
 import com.openelements.spring.base.security.user.UserEntity;
 import com.openelements.spring.base.security.user.UserService;

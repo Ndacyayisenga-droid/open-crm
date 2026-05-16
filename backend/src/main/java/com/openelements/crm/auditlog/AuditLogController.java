@@ -18,6 +18,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
+import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/audit-logs")
@@ -41,13 +42,13 @@ public class AuditLogController {
     public Page<AuditLogDto> listAuditLogs(
         @Parameter(description = "Filter by entity type (exact match)")
         @RequestParam(required = false) final String entityType,
-        @Parameter(description = "Filter by user name (exact match)")
-        @RequestParam(required = false) final String user,
+        @Parameter(description = "Filter by user id (UUID, exact match)")
+        @RequestParam(required = false) final UUID user,
         @Parameter(hidden = true)
         @PageableDefault(size = 20, sort = "createdAt", direction = Direction.DESC) final Pageable pageable) {
         final Page<AuditLogDto> data;
         final boolean hasEntityType = entityType != null && !entityType.isBlank();
-        final boolean hasUser = user != null && !user.isBlank();
+        final boolean hasUser = user != null;
         if (hasEntityType && hasUser) {
             data = auditLogService.findByEntityTypeAndUser(entityType, user, pageable);
         } else if (hasEntityType) {
