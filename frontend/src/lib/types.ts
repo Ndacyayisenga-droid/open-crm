@@ -173,6 +173,29 @@ export interface AuditLogDto {
   readonly createdAt: string;
 }
 
+export type UpdateType =
+  | "COMPANY_CREATED"
+  | "COMPANY_UPDATED"
+  | "COMPANY_DELETED"
+  | "CONTACT_CREATED"
+  | "CONTACT_UPDATED"
+  | "CONTACT_DELETED"
+  | "COMPANY_COMMENT_CREATED"
+  | "COMPANY_COMMENT_UPDATED"
+  | "COMPANY_COMMENT_DELETED"
+  | "CONTACT_COMMENT_CREATED"
+  | "CONTACT_COMMENT_UPDATED"
+  | "CONTACT_COMMENT_DELETED";
+
+export interface UpdateEntryDto {
+  readonly id: string;
+  readonly type: UpdateType;
+  readonly entityId: string | null;
+  readonly entityName: string | null;
+  readonly user: UserDto;
+  readonly createdAt: string;
+}
+
 export interface BrevoSettingsDto {
   readonly apiKeyConfigured: boolean;
 }

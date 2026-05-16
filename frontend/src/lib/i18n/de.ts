@@ -26,6 +26,7 @@ export const de = {
     menu: "Menü",
   },
   nav: {
+    updates: "Updates",
     companies: "Firmen",
     contacts: "Kontakte",
     tags: "Tags",
@@ -532,6 +533,35 @@ export const de = {
       next: "Weiter",
       totalOne: "{count} Benutzer",
       totalOther: "{count} Benutzer",
+    },
+  },
+  updates: {
+    title: "Updates",
+    empty: "Noch keine Änderungen",
+    loadError: "Updates konnten nicht geladen werden.",
+    perPage: "Pro Seite",
+    by: "von {user}",
+    events: {
+      company: {
+        created: "Neue Firma {name} wurde angelegt",
+        updated: "Firma {name} wurde aktualisiert",
+        deleted: "Eine Firma wurde gelöscht",
+      },
+      contact: {
+        created: "Neue Person {name} wurde angelegt",
+        updated: "Person {name} wurde aktualisiert",
+        deleted: "Eine Person wurde gelöscht",
+      },
+      companyComment: {
+        created: "Firma {name} hat einen neuen Kommentar",
+        updated: "Firma {name} hat einen aktualisierten Kommentar",
+        deleted: "Kommentar von Firma {name} wurde gelöscht",
+      },
+      contactComment: {
+        created: "Person {name} hat einen neuen Kommentar",
+        updated: "Person {name} hat einen aktualisierten Kommentar",
+        deleted: "Kommentar von Person {name} wurde gelöscht",
+      },
     },
   },
   auditLog: {

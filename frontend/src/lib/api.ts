@@ -17,6 +17,7 @@ import type {
   ApiKeyDto,
   ApiKeyCreateDto,
   ApiKeyCreatedDto,
+  UpdateEntryDto,
   BrevoSettingsDto,
   BrevoSyncResultDto,
   TranslationConfigDto,
@@ -838,6 +839,26 @@ export async function getAuditLogs(
 
   if (!response.ok) {
     throw new Error(`Failed to fetch audit logs: ${response.status}`);
+  }
+
+  return response.json();
+}
+
+export interface UpdatesListParams {
+  readonly size?: number;
+}
+
+export async function getUpdates(
+  params: UpdatesListParams = {},
+): Promise<Page<UpdateEntryDto>> {
+  const searchParams = new URLSearchParams();
+  if (params.size !== undefined) searchParams.set("size", String(params.size));
+  const query = searchParams.toString();
+  const url = `${baseUrl()}/api/updates${query ? `?${query}` : ""}`;
+  const response = await apiFetch(url, { cache: "no-store" });
+
+  if (!response.ok) {
+    throw new Error(`Failed to fetch updates: ${response.status}`);
   }
 
   return response.json();

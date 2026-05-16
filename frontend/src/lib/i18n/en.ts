@@ -27,6 +27,7 @@ export const en: Translations = {
     menu: "Menu",
   },
   nav: {
+    updates: "Updates",
     companies: "Companies",
     contacts: "Contacts",
     tags: "Tags",
@@ -533,6 +534,35 @@ export const en: Translations = {
       next: "Next",
       totalOne: "{count} User",
       totalOther: "{count} Users",
+    },
+  },
+  updates: {
+    title: "Updates",
+    empty: "No changes yet",
+    loadError: "Failed to load updates.",
+    perPage: "Per page",
+    by: "by {user}",
+    events: {
+      company: {
+        created: "New company {name} was created",
+        updated: "Company {name} was updated",
+        deleted: "A company was deleted",
+      },
+      contact: {
+        created: "New person {name} was created",
+        updated: "Person {name} was updated",
+        deleted: "A person was deleted",
+      },
+      companyComment: {
+        created: "Company {name} has a new comment",
+        updated: "Company {name} has an updated comment",
+        deleted: "Comment of company {name} was deleted",
+      },
+      contactComment: {
+        created: "Person {name} has a new comment",
+        updated: "Person {name} has an updated comment",
+        deleted: "Comment of person {name} was deleted",
+      },
     },
   },
   auditLog: {
