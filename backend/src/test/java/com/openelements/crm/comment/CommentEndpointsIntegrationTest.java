@@ -1,32 +1,16 @@
 package com.openelements.crm.comment;
 
-import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
-
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.openelements.crm.company.CompanyEntity;
 import com.openelements.crm.company.CompanyRepository;
 import com.openelements.crm.contact.ContactEntity;
 import com.openelements.crm.contact.ContactRepository;
-import com.openelements.crm.task.TaskEntity;
-import com.openelements.crm.task.TaskRepository;
-import com.openelements.crm.task.TaskStatus;
+import com.openelements.spring.base.security.user.Roles;
 import com.openelements.spring.base.security.user.SystemUser;
 import com.openelements.spring.base.security.user.UserRepository;
-import com.openelements.spring.base.services.comment.CommentDto;
 import com.openelements.spring.base.services.comment.CommentRepository;
 import com.openelements.spring.base.services.comment.CommentService;
-import java.time.LocalDate;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.List;
-import java.util.UUID;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -40,6 +24,19 @@ import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
+
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.List;
+import java.util.UUID;
+
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
  * End-to-end integration tests for the nested comment endpoints introduced by
@@ -59,9 +56,6 @@ class CommentEndpointsIntegrationTest {
 
     @Autowired
     private ContactRepository contactRepository;
-
-    @Autowired
-    private TaskRepository taskRepository;
 
     @Autowired
     private CommentRepository commentRepository;
@@ -95,8 +89,6 @@ class CommentEndpointsIntegrationTest {
         // Delete owners first to clear join-table rows, then the orphaned comments.
         jdbcTemplate.update("DELETE FROM company_comments");
         jdbcTemplate.update("DELETE FROM contact_comments");
-        jdbcTemplate.update("DELETE FROM task_comments");
-        taskRepository.deleteAll();
         contactRepository.deleteAll();
         companyRepository.deleteAll();
         commentRepository.deleteAll();
@@ -129,14 +121,6 @@ class CommentEndpointsIntegrationTest {
         contact.setFirstName(firstName);
         contact.setLastName(lastName);
         return contactRepository.saveAndFlush(contact);
-    }
-
-    private TaskEntity newTask(String action) {
-        final TaskEntity task = new TaskEntity();
-        task.setAction(action);
-        task.setDueDate(LocalDate.of(2026, 6, 1));
-        task.setStatus(TaskStatus.OPEN);
-        return taskRepository.saveAndFlush(task);
     }
 
     // -- Comment creation / listing for Company --
@@ -329,7 +313,7 @@ class CommentEndpointsIntegrationTest {
 
         mockMvc.perform(asUser(
                 delete("/api/companies/" + company.getId() + "/comments/" + commentId),
-                List.of("ADMIN")))
+                List.of(Roles.ROLE_APP_ADMIN)))
             .andExpect(status().isNoContent());
 
         org.junit.jupiter.api.Assertions.assertTrue(
@@ -351,7 +335,7 @@ class CommentEndpointsIntegrationTest {
 
         mockMvc.perform(asUser(
                 delete("/api/companies/" + b.getId() + "/comments/" + commentId),
-                List.of("ADMIN")))
+                List.of(Roles.ROLE_APP_ADMIN)))
             .andExpect(status().isNotFound());
 
         org.junit.jupiter.api.Assertions.assertTrue(
@@ -375,7 +359,7 @@ class CommentEndpointsIntegrationTest {
             commentIds.add(UUID.fromString(objectMapper.readTree(body).get("id").asText()));
         }
 
-        mockMvc.perform(asUser(delete("/api/companies/" + company.getId()), List.of("ADMIN")))
+        mockMvc.perform(asUser(delete("/api/companies/" + company.getId()), List.of(Roles.ROLE_APP_ADMIN)))
             .andExpect(status().isNoContent());
 
         for (final UUID id : commentIds) {
@@ -395,25 +379,7 @@ class CommentEndpointsIntegrationTest {
             .andReturn().getResponse().getContentAsString();
         final UUID commentId = UUID.fromString(objectMapper.readTree(body).get("id").asText());
 
-        mockMvc.perform(asUser(delete("/api/contacts/" + contact.getId()), List.of("ADMIN")))
-            .andExpect(status().isNoContent());
-
-        org.junit.jupiter.api.Assertions.assertTrue(commentRepository.findById(commentId).isEmpty(),
-            "Comment row should be removed by cascade");
-    }
-
-    @Test
-    void deletingTaskAlsoDeletesItsComments() throws Exception {
-        final TaskEntity task = newTask("ship it");
-        final String body = mockMvc.perform(asUser(
-                post("/api/tasks/" + task.getId() + "/comments")
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .content("{\"text\":\"hello\"}"),
-                List.of()))
-            .andReturn().getResponse().getContentAsString();
-        final UUID commentId = UUID.fromString(objectMapper.readTree(body).get("id").asText());
-
-        mockMvc.perform(asUser(delete("/api/tasks/" + task.getId()), List.of("ADMIN")))
+        mockMvc.perform(asUser(delete("/api/contacts/" + contact.getId()), List.of(Roles.ROLE_APP_ADMIN)))
             .andExpect(status().isNoContent());
 
         org.junit.jupiter.api.Assertions.assertTrue(commentRepository.findById(commentId).isEmpty(),
@@ -436,7 +402,7 @@ class CommentEndpointsIntegrationTest {
     void standaloneCommentDeleteEndpointIsRemoved() throws Exception {
         mockMvc.perform(asUser(
                 delete("/api/comments/" + UUID.randomUUID()),
-                List.of("ADMIN")))
+                List.of(Roles.ROLE_APP_ADMIN)))
             .andExpect(status().isNotFound());
     }
 
@@ -465,12 +431,12 @@ class CommentEndpointsIntegrationTest {
 
         mockMvc.perform(asUser(get("/api/companies/" + company.getId() + "/comments"), List.of()))
             .andExpect(status().isOk())
-            .andExpect(jsonPath("$[0].author.name").value("System"));
+            .andExpect(jsonPath("$[0].author.name").value(SystemUser.NAME));
     }
 
     @Test
     void systemUserIsHiddenFromAdminUserList() throws Exception {
-        mockMvc.perform(asUser(get("/api/users"), List.of("IT-ADMIN")))
+        mockMvc.perform(asUser(get("/api/users"), List.of(Roles.ROLE_IT_ADMIN)))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.content[?(@.id == '" + SystemUser.ID + "')]").doesNotExist());
     }

@@ -1,5 +1,6 @@
 package com.openelements.crm.apikey;
 
+import com.openelements.spring.base.security.NeedsItAdminRole;
 import com.openelements.spring.base.services.apikey.ApiKeyCreateDto;
 import com.openelements.spring.base.services.apikey.ApiKeyCreatedDto;
 import com.openelements.spring.base.services.apikey.ApiKeyDataService;
@@ -10,14 +11,11 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
-import java.util.Objects;
-import java.util.UUID;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
-import com.openelements.crm.security.RequiresItAdmin;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -27,6 +25,9 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.Objects;
+import java.util.UUID;
+
 /**
  * REST controller for API key management.
  */
@@ -34,7 +35,7 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/api-keys")
 @Tag(name = "API Keys", description = "API key management operations")
 @SecurityRequirement(name = "oidc")
-@RequiresItAdmin
+@NeedsItAdminRole
 public class ApiKeyController {
 
     private final ApiKeyDataService apiKeyService;
@@ -67,8 +68,8 @@ public class ApiKeyController {
     @GetMapping(produces = MediaType.APPLICATION_JSON_VALUE)
     @Operation(summary = "List API keys", description = "Returns a paginated list of API keys. Raw keys are never returned.")
     public Page<ApiKeyDto> list(
-            @Parameter(hidden = true)
-            @PageableDefault(size = 20, sort = "createdAt", direction = org.springframework.data.domain.Sort.Direction.DESC) final Pageable pageable) {
+        @Parameter(hidden = true)
+        @PageableDefault(size = 20, sort = "createdAt", direction = org.springframework.data.domain.Sort.Direction.DESC) final Pageable pageable) {
         return apiKeyService.list(pageable);
     }
 

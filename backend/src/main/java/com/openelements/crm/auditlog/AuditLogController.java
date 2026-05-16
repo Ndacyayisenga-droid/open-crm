@@ -1,6 +1,6 @@
 package com.openelements.crm.auditlog;
 
-import com.openelements.crm.security.RequiresItAdmin;
+import com.openelements.spring.base.security.NeedsItAdminRole;
 import com.openelements.spring.base.services.audit.AuditLogDataService;
 import com.openelements.spring.base.services.audit.AuditLogDto;
 import io.swagger.v3.oas.annotations.Operation;
@@ -24,7 +24,7 @@ import java.util.UUID;
 @RequestMapping("/api/audit-logs")
 @Tag(name = "Audit Log")
 @SecurityRequirement(name = "oidc")
-@RequiresItAdmin
+@NeedsItAdminRole
 public class AuditLogController {
 
     private final AuditLogDataService auditLogService;

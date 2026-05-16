@@ -1,5 +1,6 @@
 package com.openelements.crm.webhook;
 
+import com.openelements.spring.base.security.NeedsItAdminRole;
 import com.openelements.spring.base.services.webhook.WebhookSender;
 import com.openelements.spring.base.services.webhook.data.WebhookDataService;
 import com.openelements.spring.base.services.webhook.data.WebhookDto;
@@ -14,7 +15,6 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
-import com.openelements.crm.security.RequiresItAdmin;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -36,7 +36,7 @@ import java.util.UUID;
 @RequestMapping("/api/webhooks")
 @Tag(name = "Webhooks", description = "Webhook management operations")
 @SecurityRequirement(name = "oidc")
-@RequiresItAdmin
+@NeedsItAdminRole
 public class WebhookController {
 
     private final WebhookDataService webhookService;

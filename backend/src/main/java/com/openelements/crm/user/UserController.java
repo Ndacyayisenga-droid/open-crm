@@ -1,6 +1,6 @@
 package com.openelements.crm.user;
 
-import com.openelements.crm.security.RequiresItAdmin;
+import com.openelements.spring.base.security.NeedsItAdminRole;
 import com.openelements.spring.base.security.user.SystemUser;
 import com.openelements.spring.base.security.user.UserDto;
 import com.openelements.spring.base.security.user.UserEntity;
@@ -40,7 +40,7 @@ public class UserController {
     }
 
     @GetMapping(produces = MediaType.APPLICATION_JSON_VALUE)
-    @RequiresItAdmin
+    @NeedsItAdminRole
     @Operation(summary = "List users", description = "Returns a paginated list of all registered users excluding the SYSTEM-USER. Requires the IT-ADMIN role.")
     public Page<UserDto> listUsers(
         @Parameter(hidden = true)

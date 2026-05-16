@@ -1,21 +1,23 @@
 package com.openelements.crm.security;
 
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-
 import com.openelements.crm.apikey.ApiKeyController;
 import com.openelements.crm.auditlog.AuditLogController;
 import com.openelements.crm.brevo.BrevoSyncController;
 import com.openelements.crm.company.CompanyController;
 import com.openelements.crm.contact.ContactController;
 import com.openelements.crm.tag.TagController;
-import com.openelements.crm.task.TaskController;
 import com.openelements.crm.user.UserController;
 import com.openelements.crm.webhook.WebhookController;
-import java.lang.reflect.Method;
-import java.util.UUID;
+import com.openelements.spring.base.security.NeedsAppAdminRole;
+import com.openelements.spring.base.security.NeedsItAdminRole;
 import org.junit.jupiter.api.Test;
 import org.springframework.data.domain.Pageable;
+
+import java.lang.reflect.Method;
+import java.util.UUID;
+
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Verifies that every delete endpoint carries {@code @RequiresAdmin}
@@ -47,12 +49,6 @@ class PreAuthorizeAnnotationTest {
     }
 
     @Test
-    void taskDeleteCommentRequiresAdmin() throws NoSuchMethodException {
-        assertHasRequiresAdmin(TaskController.class.getDeclaredMethod(
-            "deleteComment", UUID.class, UUID.class));
-    }
-
-    @Test
     void companyDeleteLogoRequiresAdmin() throws NoSuchMethodException {
         assertHasRequiresAdmin(CompanyController.class.getDeclaredMethod(
             "deleteLogo", UUID.class));
@@ -68,12 +64,6 @@ class PreAuthorizeAnnotationTest {
     void contactDeletePhotoRequiresAdmin() throws NoSuchMethodException {
         assertHasRequiresAdmin(ContactController.class.getDeclaredMethod(
             "deletePhoto", UUID.class));
-    }
-
-    @Test
-    void taskDeleteRequiresAdmin() throws NoSuchMethodException {
-        assertHasRequiresAdmin(TaskController.class.getDeclaredMethod(
-            "delete", UUID.class));
     }
 
     @Test
@@ -109,29 +99,29 @@ class PreAuthorizeAnnotationTest {
     }
 
     private static void assertHasRequiresAdmin(Method method) {
-        final RequiresAdmin annotation = method.getAnnotation(RequiresAdmin.class);
+        final NeedsAppAdminRole annotation = method.getAnnotation(NeedsAppAdminRole.class);
         assertNotNull(annotation,
-            "Missing @RequiresAdmin on " + method.getDeclaringClass().getSimpleName()
+            "Missing @NeedsAppAdminRole on " + method.getDeclaringClass().getSimpleName()
                 + "." + method.getName());
     }
 
     private static void assertHasRequiresItAdmin(Method method) {
-        final RequiresItAdmin annotation = method.getAnnotation(RequiresItAdmin.class);
+        final NeedsItAdminRole annotation = method.getAnnotation(NeedsItAdminRole.class);
         assertNotNull(annotation,
-            "Missing @RequiresItAdmin on " + method.getDeclaringClass().getSimpleName()
+            "Missing @NeedsItAdminRole on " + method.getDeclaringClass().getSimpleName()
                 + "." + method.getName());
     }
 
     private static void assertClassHasRequiresItAdmin(Class<?> controller) {
-        final RequiresItAdmin annotation = controller.getAnnotation(RequiresItAdmin.class);
+        final NeedsItAdminRole annotation = controller.getAnnotation(NeedsItAdminRole.class);
         assertNotNull(annotation,
-            "Missing class-level @RequiresItAdmin on " + controller.getSimpleName());
+            "Missing class-level @NeedsItAdminRole on " + controller.getSimpleName());
     }
 
     @Test
     void crmSecurityConfigEnablesMethodSecurity() {
         assertTrue(SecurityConfig.class.isAnnotationPresent(
-            org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity.class),
+                org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity.class),
             "SecurityConfig must be annotated with @EnableMethodSecurity to activate @PreAuthorize checks");
     }
 }

@@ -2,7 +2,7 @@ package com.openelements.crm.tag;
 
 import com.openelements.crm.company.CompanyService;
 import com.openelements.crm.contact.ContactService;
-import com.openelements.crm.task.TaskService;
+import com.openelements.spring.base.security.NeedsAppAdminRole;
 import com.openelements.spring.base.services.tag.TagDataService;
 import com.openelements.spring.base.services.tag.TagDto;
 import io.swagger.v3.oas.annotations.Operation;
@@ -15,7 +15,6 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
-import com.openelements.crm.security.RequiresAdmin;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -42,13 +41,11 @@ public class TagController {
 
     private final ContactService contactService;
 
-    private final TaskService taskService;
 
-    public TagController(final TagDataService tagService, CompanyService companyService, ContactService contactService, TaskService taskService) {
+    public TagController(final TagDataService tagService, CompanyService companyService, ContactService contactService) {
         this.tagService = tagService;
         this.companyService = companyService;
         this.contactService = contactService;
-        this.taskService = taskService;
     }
 
     @GetMapping
@@ -64,7 +61,7 @@ public class TagController {
             tag.color(),
             companyService.countWithTag(tag.id()),
             contactService.countWithTag(tag.id()),
-            taskService.countWithTag(tag.id())));
+            0));
     }
 
     @GetMapping("/{id}")
@@ -81,7 +78,7 @@ public class TagController {
                 tag.color(),
                 companyService.countWithTag(tag.id()),
                 contactService.countWithTag(tag.id()),
-                taskService.countWithTag(tag.id())
+                0
             )).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Tag not found"));
     }
 
@@ -110,7 +107,7 @@ public class TagController {
 
     @DeleteMapping("/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    @RequiresAdmin
+    @NeedsAppAdminRole
     @Operation(summary = "Delete a tag")
     @ApiResponse(responseCode = "204", description = "Tag deleted")
     @ApiResponse(responseCode = "403", description = "Missing ADMIN role")

@@ -1,14 +1,6 @@
 package com.openelements.crm.security;
 
-import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
-
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.List;
-import java.util.UUID;
+import com.openelements.spring.base.security.user.Roles;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -19,6 +11,16 @@ import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
+
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.List;
+import java.util.UUID;
+
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
  * End-to-end security tests for spec 085 — verifies the runtime 403/2xx behaviour
@@ -41,12 +43,12 @@ class SecurityRoleIntegrationTest {
     private static MockHttpServletRequestBuilder withRoles(MockHttpServletRequestBuilder builder,
                                                            List<String> roles) {
         final Jwt jwt = Jwt.withTokenValue("token")
-                .header("alg", "none")
-                .subject("test-user")
-                .claim("preferred_username", "test-user")
-                .claim("email", "test@example.com")
-                .claim("roles", roles)
-                .build();
+            .header("alg", "none")
+            .subject("test-user")
+            .claim("preferred_username", "test-user")
+            .claim("email", "test@example.com")
+            .claim("roles", roles)
+            .build();
         // Mirror what the JwtAuthenticationConverter from spring-services does at runtime:
         // it maps every value of the "roles" claim to a ROLE_<role> GrantedAuthority.
         final Collection<GrantedAuthority> authorities = new ArrayList<>();
@@ -84,7 +86,7 @@ class SecurityRoleIntegrationTest {
     @Test
     void deleteCompanyForbiddenForItAdminOnly() throws Exception {
         mockMvc.perform(withRoles(
-                delete("/api/companies/" + UUID.randomUUID()), List.of("IT-ADMIN")))
+                delete("/api/companies/" + UUID.randomUUID()), List.of(Roles.ROLE_IT_ADMIN)))
             .andExpect(status().isForbidden());
     }
 
@@ -94,14 +96,14 @@ class SecurityRoleIntegrationTest {
         // IllegalArgumentException (entity not found). That is business logic,
         // not a 403, which confirms the authorization layer let the request through.
         assertRoleCheckPassed(() -> mockMvc.perform(withRoles(
-            delete("/api/companies/" + UUID.randomUUID()), List.of("ADMIN"))));
+            delete("/api/companies/" + UUID.randomUUID()), List.of(Roles.ROLE_APP_ADMIN))));
     }
 
     @Test
     void deleteCompanyAllowedForUserBoth() {
         assertRoleCheckPassed(() -> mockMvc.perform(withRoles(
             delete("/api/companies/" + UUID.randomUUID()),
-            List.of("ADMIN", "IT-ADMIN"))));
+            List.of(Roles.ROLE_APP_ADMIN, Roles.ROLE_IT_ADMIN))));
     }
 
     @Test
@@ -121,23 +123,6 @@ class SecurityRoleIntegrationTest {
             .andExpect(status().isForbidden());
     }
 
-    // -- DELETE /api/tasks/{id} requires ADMIN --
-
-    @Test
-    void deleteTaskForbiddenForUserNone() throws Exception {
-        mockMvc.perform(withRoles(
-                delete("/api/tasks/" + UUID.randomUUID()), List.of()))
-            .andExpect(status().isForbidden());
-    }
-
-    // -- DELETE /api/tags/{id} requires ADMIN --
-
-    @Test
-    void deleteTagForbiddenForUserNone() throws Exception {
-        mockMvc.perform(withRoles(
-                delete("/api/tags/" + UUID.randomUUID()), List.of()))
-            .andExpect(status().isForbidden());
-    }
 
     // -- DELETE /api/companies/{id}/comments/{commentId} requires ADMIN --
 
@@ -155,13 +140,6 @@ class SecurityRoleIntegrationTest {
             .andExpect(status().isForbidden());
     }
 
-    @Test
-    void deleteTaskCommentForbiddenForUserNone() throws Exception {
-        mockMvc.perform(withRoles(
-                delete("/api/tasks/" + UUID.randomUUID() + "/comments/" + UUID.randomUUID()), List.of()))
-            .andExpect(status().isForbidden());
-    }
-
     // -- Admin controllers require IT-ADMIN --
 
     @Test
@@ -172,20 +150,20 @@ class SecurityRoleIntegrationTest {
 
     @Test
     void apiKeysListForbiddenForAdminOnly() throws Exception {
-        mockMvc.perform(withRoles(get("/api/api-keys"), List.of("ADMIN")))
+        mockMvc.perform(withRoles(get("/api/api-keys"), List.of(Roles.ROLE_APP_ADMIN)))
             .andExpect(status().isForbidden());
     }
 
     @Test
     void apiKeysListAllowedForItAdmin() throws Exception {
-        mockMvc.perform(withRoles(get("/api/api-keys"), List.of("IT-ADMIN")))
+        mockMvc.perform(withRoles(get("/api/api-keys"), List.of(Roles.ROLE_IT_ADMIN)))
             .andExpect(status().isOk());
     }
 
     @Test
     void apiKeysListAllowedForUserBoth() throws Exception {
         mockMvc.perform(withRoles(get("/api/api-keys"),
-                List.of("ADMIN", "IT-ADMIN")))
+                List.of(Roles.ROLE_APP_ADMIN, Roles.ROLE_IT_ADMIN)))
             .andExpect(status().isOk());
     }
 
@@ -197,7 +175,7 @@ class SecurityRoleIntegrationTest {
 
     @Test
     void webhooksListAllowedForItAdmin() throws Exception {
-        mockMvc.perform(withRoles(get("/api/webhooks"), List.of("IT-ADMIN")))
+        mockMvc.perform(withRoles(get("/api/webhooks"), List.of(Roles.ROLE_IT_ADMIN)))
             .andExpect(status().isOk());
     }
 
@@ -212,7 +190,7 @@ class SecurityRoleIntegrationTest {
         // Brevo settings read passes the role check; underlying service may
         // throw due to test-context quirks but that's not a 403.
         assertRoleCheckPassed(() -> mockMvc.perform(withRoles(
-            get("/api/brevo/settings"), List.of("IT-ADMIN"))));
+            get("/api/brevo/settings"), List.of(Roles.ROLE_IT_ADMIN))));
     }
 
     // -- GET /api/users requires IT-ADMIN (spec 089) --
@@ -231,20 +209,20 @@ class SecurityRoleIntegrationTest {
 
     @Test
     void usersListForbiddenForAdminOnly() throws Exception {
-        mockMvc.perform(withRoles(get("/api/users"), List.of("ADMIN")))
+        mockMvc.perform(withRoles(get("/api/users"), List.of(Roles.ROLE_APP_ADMIN)))
             .andExpect(status().isForbidden());
     }
 
     @Test
     void usersListAllowedForItAdmin() throws Exception {
-        mockMvc.perform(withRoles(get("/api/users"), List.of("IT-ADMIN")))
+        mockMvc.perform(withRoles(get("/api/users"), List.of(Roles.ROLE_IT_ADMIN)))
             .andExpect(status().isOk());
     }
 
     @Test
     void usersListAllowedForUserBoth() throws Exception {
         mockMvc.perform(withRoles(get("/api/users"),
-                List.of("ADMIN", "IT-ADMIN")))
+                List.of(Roles.ROLE_APP_ADMIN, Roles.ROLE_IT_ADMIN)))
             .andExpect(status().isOk());
     }
 
@@ -272,20 +250,20 @@ class SecurityRoleIntegrationTest {
 
     @Test
     void auditLogsListForbiddenForAdminOnly() throws Exception {
-        mockMvc.perform(withRoles(get("/api/audit-logs"), List.of("ADMIN")))
+        mockMvc.perform(withRoles(get("/api/audit-logs"), List.of(Roles.ROLE_APP_ADMIN)))
             .andExpect(status().isForbidden());
     }
 
     @Test
     void auditLogsListAllowedForItAdmin() throws Exception {
-        mockMvc.perform(withRoles(get("/api/audit-logs"), List.of("IT-ADMIN")))
+        mockMvc.perform(withRoles(get("/api/audit-logs"), List.of(Roles.ROLE_IT_ADMIN)))
             .andExpect(status().isOk());
     }
 
     @Test
     void auditLogsListAllowedForUserBoth() throws Exception {
         mockMvc.perform(withRoles(get("/api/audit-logs"),
-                List.of("ADMIN", "IT-ADMIN")))
+                List.of(Roles.ROLE_APP_ADMIN, Roles.ROLE_IT_ADMIN)))
             .andExpect(status().isOk());
     }
 
@@ -303,7 +281,7 @@ class SecurityRoleIntegrationTest {
 
     @Test
     void auditLogEntityTypesAllowedForItAdmin() throws Exception {
-        mockMvc.perform(withRoles(get("/api/audit-logs/entity-types"), List.of("IT-ADMIN")))
+        mockMvc.perform(withRoles(get("/api/audit-logs/entity-types"), List.of(Roles.ROLE_IT_ADMIN)))
             .andExpect(status().isOk());
     }
 

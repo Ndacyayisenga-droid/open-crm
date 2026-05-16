@@ -1,15 +1,14 @@
 package com.openelements.crm.brevo;
 
+import com.openelements.spring.base.security.NeedsItAdminRole;
 import com.openelements.spring.base.services.settings.SettingsDataService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
-import java.util.Objects;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
-import com.openelements.crm.security.RequiresItAdmin;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -20,6 +19,8 @@ import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.util.Objects;
+
 /**
  * REST controller for Brevo import settings and synchronization.
  */
@@ -27,7 +28,7 @@ import org.springframework.web.server.ResponseStatusException;
 @RequestMapping("/api/brevo")
 @Tag(name = "Brevo Sync", description = "Brevo import and settings management")
 @SecurityRequirement(name = "oidc")
-@RequiresItAdmin
+@NeedsItAdminRole
 public class BrevoSyncController {
 
     private static final String BREVO_API_KEY = "brevo.api-key";
@@ -71,7 +72,7 @@ public class BrevoSyncController {
      * @return the updated settings status
      */
     @PutMapping(value = "/settings", consumes = MediaType.APPLICATION_JSON_VALUE,
-            produces = MediaType.APPLICATION_JSON_VALUE)
+        produces = MediaType.APPLICATION_JSON_VALUE)
     @Operation(summary = "Update Brevo API key")
     @ApiResponse(responseCode = "200", description = "API key updated")
     @ApiResponse(responseCode = "400", description = "Invalid API key")
@@ -105,7 +106,7 @@ public class BrevoSyncController {
     public BrevoSyncResultDto sync() {
         if (settingsService.get(BREVO_API_KEY).isEmpty()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                    "Brevo API key is not configured");
+                "Brevo API key is not configured");
         }
         return brevoSyncService.syncAll();
     }
