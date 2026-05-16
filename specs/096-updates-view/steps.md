@@ -4,13 +4,13 @@
 
 **Changes**
 
-- [ ] `CompanyService` — inject `AuditLogDataService` + `UserService`; after add/update/delete comment, emit `AuditLogDataService.createEntry("CompanyComment", companyId, INSERT|UPDATE|DELETE, currentUser)`.
-- [ ] `ContactService` — analogous: entityType `"ContactComment"`, `entityId = contactId`.
+- [x] `CompanyService` — inject `AuditLogDataService` + `UserService`; after add/update/delete comment, emit `AuditLogDataService.createEntry("CompanyComment", companyId, INSERT|UPDATE|DELETE, currentUser)`.
+- [x] `ContactService` — analogous: entityType `"ContactComment"`, `entityId = contactId`.
 
 **Acceptance criteria**
 
-- [ ] Backend compiles.
-- [ ] Comment CRUD via `/api/companies/{id}/comments` and `/api/contacts/{id}/comments` writes an audit-log row with the correct entityType / entityId / action / user.
+- [x] Backend compiles.
+- [x] Comment CRUD via `/api/companies/{id}/comments` and `/api/contacts/{id}/comments` writes an audit-log row with the correct entityType / entityId / action / user.
 
 **Related behaviors**: Adding a comment to a company emits an audit entry; Updating a company comment emits an audit entry; Deleting a company comment emits an audit entry; Same invariants for contact comments.
 
@@ -18,10 +18,10 @@
 
 **Changes**
 
-- [ ] New package `com.openelements.crm.updates`.
-- [ ] `UpdateType` enum with 12 values per design.
-- [ ] `UpdateEntryDto(id, type, entityId, entityName, user, createdAt)` record.
-- [ ] `UpdatesService` with `load(int size)` returning `List<UpdateEntryDto>`:
+- [x] New package `com.openelements.crm.updates`.
+- [x] `UpdateType` enum with 12 values per design.
+- [x] `UpdateEntryDto(id, type, entityId, entityName, user, createdAt)` record.
+- [x] `UpdatesService` with `load(int size)` returning `List<UpdateEntryDto>`:
   - iterative fetch from `AuditLogDataService.findAll(Pageable)`
   - filter to relevant entityTypes
   - dedupe consecutive UPDATEs (same entityType + entityId + user.id, action == UPDATE) — newest wins
@@ -30,20 +30,20 @@
 
 **Acceptance criteria**
 
-- [ ] Backend compiles.
+- [x] Backend compiles.
 
 ## Step 3 — UpdatesController (backend)
 
 **Changes**
 
-- [ ] `UpdatesController` at `/api/updates`, `@SecurityRequirement("oidc")`, **no** role restriction.
-- [ ] `GET /api/updates?size=&page=` returning `Page<UpdateEntryDto>` with `totalPages=1`, `totalElements = content.size()`.
-- [ ] `size` validated against `{20, 50, 100, 200}`; default `20`; other values → `400`.
-- [ ] `page > 0` returns empty content (no error).
+- [x] `UpdatesController` at `/api/updates`, `@SecurityRequirement("oidc")`, **no** role restriction.
+- [x] `GET /api/updates?size=&page=` returning `Page<UpdateEntryDto>` with `totalPages=1`, `totalElements = content.size()`.
+- [x] `size` validated against `{20, 50, 100, 200}`; default `20`; other values → `400`.
+- [x] `page > 0` returns empty content (no error).
 
 **Acceptance criteria**
 
-- [ ] Backend compiles.
+- [x] Backend compiles.
 
 **Related behaviors**: Unauthenticated request is rejected; Any authenticated user can read updates; IT-ADMIN user can also read updates; Default size is 20; Size 50/100/200 accepted; Disallowed size rejected; Page parameter ignored beyond page 0.
 
@@ -51,16 +51,16 @@
 
 **Changes**
 
-- [ ] `UpdatesServiceTest` (`@SpringBootTest`) covering: filter, dedupe (same user, different users, different entities, CREATE+UPDATE, UPDATE+DELETE, contact dedupe, comment dedupe, dedupe across filtered entries), name resolution including missing entities, comment parent resolution, COMPANY/CONTACT_DELETED with null id/name, sort order, empty audit log, fewer than size, iterative fetch.
-- [ ] `UpdatesControllerTest` (`@SpringBootTest` + `MockMvc`) covering: 401 unauth, 200 for normal user, 200 for IT-ADMIN, default size, valid sizes, invalid sizes → 400, `page=2` returns empty, sort order.
-- [ ] `CompanyServiceCommentAuditTest` / `ContactServiceCommentAuditTest` (or extend existing) covering audit emission on comment add/update/delete.
-- [ ] Filter test for out-of-scope entity types (user, webhook, tag, api-key).
-- [ ] Task-comment exclusion (task comments don't appear).
+- [x] `UpdatesServiceTest` (`@SpringBootTest`) covering: filter, dedupe (same user, different users, different entities, CREATE+UPDATE, UPDATE+DELETE, contact dedupe, comment dedupe, dedupe across filtered entries), name resolution including missing entities, comment parent resolution, COMPANY/CONTACT_DELETED with null id/name, sort order, empty audit log, fewer than size, iterative fetch.
+- [x] `UpdatesControllerTest` (`@SpringBootTest` + `MockMvc`) covering: 401 unauth, 200 for normal user, 200 for IT-ADMIN, default size, valid sizes, invalid sizes → 400, `page=2` returns empty, sort order.
+- [x] `CompanyServiceCommentAuditTest` / `ContactServiceCommentAuditTest` (or extend existing) covering audit emission on comment add/update/delete.
+- [x] Filter test for out-of-scope entity types (user, webhook, tag, api-key).
+- [x] Task-comment exclusion (task comments don't appear).
 
 **Acceptance criteria**
 
-- [ ] All new tests pass.
-- [ ] `mvn verify` is green.
+- [x] All new tests pass.
+- [x] `mvn verify` is green.
 
 **Related behaviors**: all backend scenarios from `behaviors.md`.
 
@@ -68,13 +68,13 @@
 
 **Changes**
 
-- [ ] Add `updates` block + `nav.updates` to `frontend/src/lib/i18n/de.ts` and `en.ts` (or equivalent shared file).
-- [ ] Sidebar / app layout: add Updates as first nav item before Companies/Contacts/Tags, visible to all authenticated users.
+- [x] Add `updates` block + `nav.updates` to `frontend/src/lib/i18n/de.ts` and `en.ts` (or equivalent shared file).
+- [x] Sidebar / app layout: add Updates as first nav item before Companies/Contacts/Tags, visible to all authenticated users.
 
 **Acceptance criteria**
 
-- [ ] Frontend compiles.
-- [ ] Sidebar renders Updates entry.
+- [x] Frontend compiles.
+- [x] Sidebar renders Updates entry.
 
 **Related behaviors**: Navigation entry is shown to every authenticated user.
 
@@ -82,8 +82,8 @@
 
 **Changes**
 
-- [ ] New route `frontend/src/app/(app)/updates/page.tsx` (server entry).
-- [ ] `updates-client.tsx` client component:
+- [x] New route `frontend/src/app/(app)/updates/page.tsx` (server entry).
+- [x] `updates-client.tsx` client component:
   - fetch `GET /api/updates?size=N` on mount and on size change
   - page-size combobox (20/50/100/200), persists in `localStorage` under `updates.pageSize`
   - render rows: localized text built from `type` + `entityName`; entity-name portion is a link to `/companies/{id}` or `/contacts/{id}` when `entityId != null`; plain text otherwise
@@ -92,8 +92,8 @@
 
 **Acceptance criteria**
 
-- [ ] Frontend compiles.
-- [ ] Manual smoke check: `/updates` renders.
+- [x] Frontend compiles.
+- [x] Manual smoke check: `/updates` renders.
 
 **Related behaviors**: Page renders empty-state text; Entity name is a link when entityId is non-null; No link for COMPANY_DELETED and CONTACT_DELETED; Comment entries link to the parent entity; Page-size combobox persists choice; Manual reload reflects newly created entries; Page does not auto-refresh; German user / English user sees correct texts.
 
@@ -101,22 +101,22 @@
 
 **Changes**
 
-- [ ] Vitest tests for `updates-client.tsx` covering: rendering rows for each type, link vs plain-text behaviour, empty state, `localStorage` persistence on size change, language switching (de vs en text), no auto-refresh.
+- [x] Vitest tests for `updates-client.tsx` covering: rendering rows for each type, link vs plain-text behaviour, empty state, `localStorage` persistence on size change, language switching (de vs en text), no auto-refresh.
 
 **Acceptance criteria**
 
-- [ ] `pnpm vitest` green.
+- [x] `pnpm vitest` green.
 
 ## Step 8 — Documentation + index + PR
 
 **Changes**
 
-- [ ] Update `specs/INDEX.md` status to `done`.
-- [ ] Update `.claude/conventions/project-specific/project-features.md` and friends if applicable.
+- [x] Update `specs/INDEX.md` status to `done`.
+- [x] Update `.claude/conventions/project-specific/project-features.md` and friends if applicable.
 
 **Acceptance criteria**
 
-- [ ] Reviewed by spec-review and quality-review, no Critical / Improvement findings open.
+- [x] Reviewed by spec-review and quality-review, no Critical / Improvement findings open.
 
 ## Behavior Coverage
 
