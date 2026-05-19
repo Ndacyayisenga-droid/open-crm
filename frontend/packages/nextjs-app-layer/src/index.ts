@@ -29,6 +29,14 @@ export { createUsersPage } from "./pages/admin/users/page";
 export { UsersClient } from "./pages/admin/users/users-client";
 export { usersPageMeta } from "./pages/admin/users/meta";
 
+export { createServerStatusPage } from "./pages/admin/status/page";
+export { ServerStatusClient } from "./pages/admin/status/server-status-client";
+export { serverStatusPageMeta } from "./pages/admin/status/meta";
+
+export { createBearerTokenPage } from "./pages/admin/token/page";
+export { BearerTokenClient } from "./pages/admin/token/bearer-token-client";
+export { bearerTokenPageMeta } from "./pages/admin/token/meta";
+
 export type {
   Page,
   UserDto,
