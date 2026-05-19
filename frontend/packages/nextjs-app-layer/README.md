@@ -82,7 +82,18 @@ export const GET = createLogoutHandler({
 ```ts
 // frontend/src/middleware.ts
 export { auth as middleware } from "@/auth";
-export { middlewareConfig as config } from "@open-elements/nextjs-app-layer/server";
+
+// `config` MUST be a static literal here. Next.js' build-time analyzer
+// extracts the matcher directly from middleware.ts and does not follow
+// re-exports across the workspace-package boundary. Re-exporting the lib's
+// `middlewareConfig` as `config` silently disables the matcher in production
+// — `/_next/static/*` requests get routed through the auth middleware and
+// the deployment breaks. The lib's `middlewareConfig` is reference-only.
+export const config = {
+  matcher: [
+    "/((?!api/auth|api/logout|login|_next/static|_next/image|favicon\\.ico|.*\\.svg$|.*\\.png$|.*\\.jpg$|.*\\.ico$).*)",
+  ],
+};
 ```
 
 ```tsx
