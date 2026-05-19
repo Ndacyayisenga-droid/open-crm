@@ -17,6 +17,10 @@ export { ForbiddenPage } from "./components/forbidden-page";
 export { BearerTokenCard } from "./components/bearer-token-card";
 export { AddCommentDialog } from "./components/add-comment-dialog";
 
+export { ApiClientProvider, useApiClient } from "./hooks/api-client";
+export { defaultApiClient } from "./api/client";
+export type { AppLayerApiClient } from "./api/client";
+
 export type {
   Page,
   UserDto,
