@@ -41,6 +41,10 @@ export { createApiKeysPage } from "./pages/api-keys/page";
 export { ApiKeysClient } from "./pages/api-keys/api-keys-client";
 export { apiKeysPageMeta } from "./pages/api-keys/meta";
 
+export { createWebhooksPage } from "./pages/webhooks/page";
+export { WebhooksClient } from "./pages/webhooks/webhooks-client";
+export { webhooksPageMeta } from "./pages/webhooks/meta";
+
 export type {
   Page,
   UserDto,

@@ -1,23 +1,48 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Plus, Trash2, Radio, Webhook } from "lucide-react";
-import { Button, DeleteConfirmDialog, Input, Tooltip, TooltipTrigger, TooltipContent, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, Skeleton } from "@open-elements/ui";
-import { useTranslations } from "@/lib/i18n";
-import { TablePagination, TooltipIconButton } from "@open-elements/ui";
+import { AlertCircle, Plus, Radio, Trash2, Webhook } from "lucide-react";
 import {
-  getWebhooks,
-  createWebhook,
-  updateWebhook,
-  deleteWebhook,
-  pingWebhook,
-} from "@/lib/api";
-import type { WebhookDto, Page } from "@/lib/types";
+  Button,
+  DeleteConfirmDialog,
+  Input,
+  Tooltip,
+  TooltipTrigger,
+  TooltipContent,
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  Skeleton,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+  TablePagination,
+  TooltipIconButton,
+} from "@open-elements/ui";
+import { useAppLayerTranslations } from "../../translations/provider";
+import { useApiClient } from "../../hooks/api-client";
+import type { WebhookDto, Page } from "../../api/types";
+import type { AppLayerTranslations } from "../../translations/provider";
 
-function formatStatus(
-  status: number | null,
-  t: ReturnType<typeof useTranslations>,
-): string {
+export const PAGE_SIZE_OPTIONS = [10, 20, 50, 100, 200] as const;
+export const DEFAULT_PAGE_SIZE = 20;
+export const PAGE_SIZE_STORAGE_KEY = "pageSize.webhooks";
+
+function readStoredPageSize(): number {
+  if (typeof window === "undefined") return DEFAULT_PAGE_SIZE;
+  const stored = localStorage.getItem(PAGE_SIZE_STORAGE_KEY);
+  const parsed = Number(stored);
+  if ((PAGE_SIZE_OPTIONS as readonly number[]).includes(parsed)) return parsed;
+  return DEFAULT_PAGE_SIZE;
+}
+
+function formatStatus(status: number | null, t: AppLayerTranslations): string {
   if (status === null) return t.webhooks.status.neverCalled;
   if (status === -1) return t.webhooks.status.timeout;
   if (status === 0) return t.webhooks.status.connectionError;
@@ -31,18 +56,13 @@ function formatTimestamp(ts: string | null): string {
 }
 
 export function WebhooksClient() {
-  const t = useTranslations();
+  const t = useAppLayerTranslations();
+  const api = useApiClient();
   const [data, setData] = useState<Page<WebhookDto> | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [page, setPage] = useState(0);
-  const [pageSize, setPageSize] = useState(() => {
-    if (typeof window === "undefined") return 20;
-    const stored = localStorage.getItem("pageSize.webhooks");
-    const parsed = Number(stored);
-    if ([10, 20, 50, 100, 200].includes(parsed)) return parsed;
-    localStorage.setItem("pageSize.webhooks", "20");
-    return 20;
-  });
+  const [pageSize, setPageSize] = useState<number>(() => readStoredPageSize());
   const [deleteTarget, setDeleteTarget] = useState<WebhookDto | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
@@ -52,13 +72,18 @@ export function WebhooksClient() {
 
   const fetchWebhooks = useCallback(async () => {
     setLoading(true);
+    setError(null);
     try {
-      const result = await getWebhooks({ page, size: pageSize });
+      const result = await api.getWebhooks({ page, size: pageSize });
       setData(result);
+    } catch (err: unknown) {
+      console.error("Failed to load webhooks", err);
+      setError(t.webhooks.loadError);
+      setData(null);
     } finally {
       setLoading(false);
     }
-  }, [page, pageSize]);
+  }, [api, page, pageSize, t.webhooks.loadError]);
 
   useEffect(() => {
     fetchWebhooks();
@@ -72,15 +97,13 @@ export function WebhooksClient() {
     setCreateError(null);
     setCreateSubmitting(true);
     try {
-      await createWebhook({ url: createUrl.trim() });
+      await api.createWebhook({ url: createUrl.trim() });
       setCreateOpen(false);
       setCreateUrl("");
       setCreateError(null);
       fetchWebhooks();
     } catch (e) {
-      setCreateError(
-        e instanceof Error ? e.message : t.webhooks.createDialog.error,
-      );
+      setCreateError(e instanceof Error ? e.message : t.webhooks.createDialog.error);
     } finally {
       setCreateSubmitting(false);
     }
@@ -89,7 +112,7 @@ export function WebhooksClient() {
   const handleDelete = async () => {
     if (!deleteTarget) return;
     try {
-      await deleteWebhook(deleteTarget.id);
+      await api.deleteWebhook(deleteTarget.id);
       setDeleteTarget(null);
       setDeleteError(null);
       fetchWebhooks();
@@ -100,7 +123,7 @@ export function WebhooksClient() {
 
   const handleToggleActive = async (webhook: WebhookDto) => {
     try {
-      await updateWebhook(webhook.id, {
+      await api.updateWebhook(webhook.id, {
         url: webhook.url,
         active: !webhook.active,
       });
@@ -112,7 +135,7 @@ export function WebhooksClient() {
 
   const handlePing = async (webhook: WebhookDto) => {
     try {
-      await pingWebhook(webhook.id);
+      await api.pingWebhook(webhook.id);
     } catch {
       // Fire-and-forget — no visible feedback
     }
@@ -123,11 +146,8 @@ export function WebhooksClient() {
 
   return (
     <div>
-      {/* Header */}
       <div className="mb-6 flex items-center justify-between">
-        <h1 className="font-heading text-2xl font-bold text-oe-dark">
-          {t.webhooks.title}
-        </h1>
+        <h1 className="font-heading text-2xl font-bold text-oe-dark">{t.webhooks.title}</h1>
         <Button
           onClick={() => {
             setCreateUrl("");
@@ -140,16 +160,26 @@ export function WebhooksClient() {
         </Button>
       </div>
 
-      {/* Loading */}
       {loading ? (
-        <div className="space-y-3">
+        <div className="space-y-3" data-testid="webhooks-loading">
           {Array.from({ length: 5 }).map((_, i) => (
             <Skeleton key={i} className="h-12 w-full" />
           ))}
         </div>
+      ) : error ? (
+        <div
+          className="flex flex-col items-center justify-center py-16 text-center"
+          data-testid="webhooks-error"
+          role="alert"
+        >
+          <AlertCircle className="mb-4 h-12 w-12 text-oe-red/70" />
+          <p className="text-oe-red">{error}</p>
+        </div>
       ) : !data || data.content.length === 0 ? (
-        /* Empty state */
-        <div className="flex flex-col items-center justify-center py-16 text-center">
+        <div
+          className="flex flex-col items-center justify-center py-16 text-center"
+          data-testid="webhooks-empty"
+        >
           <Webhook className="mb-4 h-12 w-12 text-oe-gray/50" />
           <p className="mb-4 text-oe-gray">{t.webhooks.empty}</p>
           <Button
@@ -164,49 +194,35 @@ export function WebhooksClient() {
         </div>
       ) : (
         <>
-          {/* Table */}
           <div className="overflow-hidden rounded-lg border border-oe-gray-light">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-oe-gray-light bg-oe-gray-lightest">
-                  <th className="px-4 py-3 text-left font-medium text-oe-gray">
-                    {t.webhooks.columns.url}
-                  </th>
-                  <th className="px-4 py-3 text-center font-medium text-oe-gray w-20">
-                    {t.webhooks.columns.active}
-                  </th>
-                  <th className="hidden px-4 py-3 text-left font-medium text-oe-gray md:table-cell">
-                    {t.webhooks.columns.lastStatus}
-                  </th>
-                  <th className="hidden px-4 py-3 text-left font-medium text-oe-gray md:table-cell">
-                    {t.webhooks.columns.lastCalledAt}
-                  </th>
-                  <th className="px-4 py-3 text-right font-medium text-oe-gray w-24">
-                    {t.webhooks.columns.actions}
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>{t.webhooks.columns.url}</TableHead>
+                  <TableHead className="w-20 text-center">{t.webhooks.columns.active}</TableHead>
+                  <TableHead className="hidden md:table-cell">{t.webhooks.columns.lastStatus}</TableHead>
+                  <TableHead className="hidden md:table-cell">{t.webhooks.columns.lastCalledAt}</TableHead>
+                  <TableHead className="w-24 text-right">{t.webhooks.columns.actions}</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
                 {data.content.map((webhook) => (
-                  <tr
-                    key={webhook.id}
-                    className="border-b border-oe-gray-light last:border-0"
-                  >
-                    <td className="px-4 py-3 font-medium text-oe-dark truncate max-w-xs">
+                  <TableRow key={webhook.id}>
+                    <TableCell className="max-w-xs truncate font-medium text-oe-dark">
                       {webhook.url}
-                    </td>
-                    <td className="px-4 py-3 text-center">
+                    </TableCell>
+                    <TableCell className="text-center">
                       <span
                         className={`inline-block h-3 w-3 rounded-full ${webhook.active ? "bg-oe-green" : "bg-oe-gray"}`}
                       />
-                    </td>
-                    <td className="hidden px-4 py-3 text-oe-gray md:table-cell">
+                    </TableCell>
+                    <TableCell className="hidden text-oe-gray md:table-cell">
                       {formatStatus(webhook.lastStatus, t)}
-                    </td>
-                    <td className="hidden px-4 py-3 text-oe-gray md:table-cell">
+                    </TableCell>
+                    <TableCell className="hidden text-oe-gray md:table-cell">
                       {formatTimestamp(webhook.lastCalledAt)}
-                    </td>
-                    <td className="px-4 py-3 text-right">
+                    </TableCell>
+                    <TableCell className="text-right">
                       <div className="flex items-center justify-end gap-1">
                         <Tooltip>
                           <TooltipTrigger asChild>
@@ -224,9 +240,7 @@ export function WebhooksClient() {
                             </Button>
                           </TooltipTrigger>
                           <TooltipContent>
-                            {webhook.active
-                              ? t.webhooks.actions.deactivate
-                              : t.webhooks.actions.activate}
+                            {webhook.active ? t.webhooks.actions.deactivate : t.webhooks.actions.activate}
                           </TooltipContent>
                         </Tooltip>
                         <TooltipIconButton
@@ -244,11 +258,11 @@ export function WebhooksClient() {
                           }}
                         />
                       </div>
-                    </td>
-                  </tr>
+                    </TableCell>
+                  </TableRow>
                 ))}
-              </tbody>
-            </table>
+              </TableBody>
+            </Table>
           </div>
 
           <TablePagination
@@ -256,8 +270,8 @@ export function WebhooksClient() {
             pageSize={pageSize}
             totalElements={totalElements}
             totalPages={totalPages}
-            pageSizeOptions={[10, 20, 50, 100, 200]}
-            storageKey="pageSize.webhooks"
+            pageSizeOptions={PAGE_SIZE_OPTIONS}
+            storageKey={PAGE_SIZE_STORAGE_KEY}
             translations={t.webhooks.pagination}
             onPageChange={setPage}
             onPageSizeChange={setPageSize}
@@ -270,9 +284,7 @@ export function WebhooksClient() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>{t.webhooks.createDialog.title}</DialogTitle>
-            <DialogDescription>
-              {t.webhooks.createDialog.urlLabel}
-            </DialogDescription>
+            <DialogDescription>{t.webhooks.createDialog.urlLabel}</DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <Input
@@ -286,18 +298,13 @@ export function WebhooksClient() {
                 if (e.key === "Enter") handleCreate();
               }}
             />
-            {createError && (
-              <p className="text-sm text-oe-red">{createError}</p>
-            )}
+            {createError && <p className="text-sm text-oe-red">{createError}</p>}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setCreateOpen(false)}>
               {t.webhooks.createDialog.cancel}
             </Button>
-            <Button
-              onClick={handleCreate}
-              disabled={createSubmitting}
-            >
+            <Button onClick={handleCreate} disabled={createSubmitting}>
               {t.webhooks.createDialog.create}
             </Button>
           </DialogFooter>
