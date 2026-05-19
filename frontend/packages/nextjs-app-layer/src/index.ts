@@ -48,7 +48,9 @@ export { webhooksPageMeta } from "./pages/webhooks/meta";
 export { createLoginPage } from "./pages/login/page";
 export { LoginClient } from "./pages/login/login-client";
 
-export { OERootLayout } from "./layout/root-layout";
+// OERootLayout is exposed at "@open-elements/nextjs-app-layer/layout" so the
+// `next/font/google` runtime call (compile-time in Next.js, but a real call
+// under jest/vitest) does not get pulled into every consumer of the barrel.
 
 export type {
   Page,

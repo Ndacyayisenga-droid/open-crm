@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { OERootLayout } from "@open-elements/nextjs-app-layer";
+import { OERootLayout } from "@open-elements/nextjs-app-layer/layout";
 import { translations } from "@/lib/i18n";
 import "./globals.css";
 

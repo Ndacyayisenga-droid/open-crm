@@ -6,7 +6,8 @@
   "exports": {
     ".": "./src/index.ts",
     "./server": "./src/server.ts",
-    "./server/next-auth-types": "./src/server/next-auth-types.ts"
+    "./server/next-auth-types": "./src/server/next-auth-types.ts",
+    "./layout": "./src/layout/root-layout.tsx"
   },
   "scripts": {
     "test": "vitest run",
