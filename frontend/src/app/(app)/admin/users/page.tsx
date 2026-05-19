@@ -1,12 +1,4 @@
 import { auth } from "@/auth";
-import { ForbiddenPage } from "@/components/forbidden-page";
-import { ROLE_IT_ADMIN } from "@/lib/roles";
-import { UsersClient } from "./users-client";
+import { createUsersPage } from "@open-elements/nextjs-app-layer";
 
-export default async function UsersPage() {
-  const session = await auth();
-  if (!session?.roles?.includes(ROLE_IT_ADMIN)) {
-    return <ForbiddenPage />;
-  }
-  return <UsersClient />;
-}
+export default createUsersPage({ auth });

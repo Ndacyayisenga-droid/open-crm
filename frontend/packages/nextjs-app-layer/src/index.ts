@@ -21,6 +21,14 @@ export { ApiClientProvider, useApiClient } from "./hooks/api-client";
 export { defaultApiClient } from "./api/client";
 export type { AppLayerApiClient } from "./api/client";
 
+export { createAuditLogsPage } from "./pages/admin/audit-logs/page";
+export { AuditLogsClient } from "./pages/admin/audit-logs/audit-logs-client";
+export { auditLogsPageMeta } from "./pages/admin/audit-logs/meta";
+
+export { createUsersPage } from "./pages/admin/users/page";
+export { UsersClient } from "./pages/admin/users/users-client";
+export { usersPageMeta } from "./pages/admin/users/meta";
+
 export type {
   Page,
   UserDto,

@@ -15,15 +15,11 @@ import {
   TableHead,
   TableHeader,
   TableRow,
+  TablePagination,
 } from "@open-elements/ui";
-import { useTranslations } from "@/lib/i18n";
-import { TablePagination } from "@open-elements/ui";
-import {
-  getAuditLogEntityTypes,
-  getAuditLogs,
-  getUsers,
-} from "@/lib/api";
-import type { AuditLogDto, Page, UserDto } from "@/lib/types";
+import { useAppLayerTranslations } from "../../../translations/provider";
+import { useApiClient } from "../../../hooks/api-client";
+import type { AuditLogDto, Page, UserDto } from "../../../api/types";
 
 export const PAGE_SIZE_OPTIONS = [10, 20, 50, 100, 200] as const;
 export const DEFAULT_PAGE_SIZE = 20;
@@ -39,7 +35,8 @@ function readStoredPageSize(): number {
 }
 
 export function AuditLogsClient() {
-  const t = useTranslations();
+  const t = useAppLayerTranslations();
+  const api = useApiClient();
   const [data, setData] = useState<Page<AuditLogDto> | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -51,21 +48,26 @@ export function AuditLogsClient() {
   const [users, setUsers] = useState<readonly UserDto[]>([]);
 
   useEffect(() => {
-    getAuditLogEntityTypes()
+    api
+      .getAuditLogEntityTypes()
       .then((types) => setEntityTypes(types))
       .catch(() => setEntityTypes([]));
-    // Load up to 200 users for the dropdown — matches the largest selectable
-    // page size and is enough for any plausible CRM team size.
-    getUsers({ size: 200 })
+    api
+      .getUsers({ page: 0, size: 200 })
       .then((result) => setUsers(result.content))
       .catch(() => setUsers([]));
-  }, []);
+  }, [api]);
 
   const fetchAuditLogs = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const result = await getAuditLogs({ page, size: pageSize, entityType, user: userId });
+      const result = await api.getAuditLogs({
+        page,
+        size: pageSize,
+        entityType,
+        user: userId,
+      });
       setData(result);
     } catch (err: unknown) {
       console.error("Failed to load audit logs", err);
@@ -74,7 +76,7 @@ export function AuditLogsClient() {
     } finally {
       setLoading(false);
     }
-  }, [page, pageSize, entityType, userId, t.auditLog.loadError]);
+  }, [api, page, pageSize, entityType, userId, t.auditLog.loadError]);
 
   useEffect(() => {
     fetchAuditLogs();
@@ -91,9 +93,7 @@ export function AuditLogsClient() {
 
       <div className="mb-4 flex flex-wrap items-center gap-3">
         <div className="flex items-center gap-2">
-          <span className="text-sm text-oe-gray">
-            {t.auditLog.filter.entityType}
-          </span>
+          <span className="text-sm text-oe-gray">{t.auditLog.filter.entityType}</span>
           <Select
             value={entityType ?? ALL_VALUE}
             onValueChange={(v) => {
@@ -109,13 +109,9 @@ export function AuditLogsClient() {
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value={ALL_VALUE}>
-                {t.auditLog.filter.entityTypeAll}
-              </SelectItem>
+              <SelectItem value={ALL_VALUE}>{t.auditLog.filter.entityTypeAll}</SelectItem>
               {entityTypes.map((type) => (
-                <SelectItem key={type} value={type}>
-                  {type}
-                </SelectItem>
+                <SelectItem key={type} value={type}>{type}</SelectItem>
               ))}
             </SelectContent>
           </Select>
@@ -138,13 +134,9 @@ export function AuditLogsClient() {
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value={ALL_VALUE}>
-                {t.auditLog.filter.userAll}
-              </SelectItem>
+              <SelectItem value={ALL_VALUE}>{t.auditLog.filter.userAll}</SelectItem>
               {users.map((u) => (
-                <SelectItem key={u.id} value={u.id}>
-                  {u.name}
-                </SelectItem>
+                <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>
               ))}
             </SelectContent>
           </Select>
@@ -190,12 +182,8 @@ export function AuditLogsClient() {
               <TableBody>
                 {data.content.map((entry) => (
                   <TableRow key={entry.id}>
-                    <TableCell className="font-medium text-oe-dark">
-                      {entry.entityType}
-                    </TableCell>
-                    <TableCell className="font-mono text-xs text-oe-gray">
-                      {entry.entityId}
-                    </TableCell>
+                    <TableCell className="font-medium text-oe-dark">{entry.entityType}</TableCell>
+                    <TableCell className="font-mono text-xs text-oe-gray">{entry.entityId}</TableCell>
                     <TableCell className="text-oe-dark">{entry.action}</TableCell>
                     <TableCell className="text-oe-gray">{entry.user.name}</TableCell>
                     <TableCell className="text-oe-gray">
