@@ -4,11 +4,8 @@ In-repo pnpm workspace package that extracts the Next.js foundation every
 Open Elements app of the Open-CRM family needs. Currently consumed only by
 `open-crm-frontend`.
 
-This is an **in-progress extraction** of spec
+This package implements spec
 [098-extract-nextjs-app-layer](../../../specs/098-extract-nextjs-app-layer/).
-Phases 1–6 (workspace, utils, DTOs, translations, server factories,
-shared components, API client) are landed. Phases 7–9 (page migrations,
-`OERootLayout`, full README and test suite) are pending.
 
 ## Public entry points
 
@@ -26,13 +23,21 @@ shared components, API client) are landed. Phases 7–9 (page migrations,
   `AddCommentDialog`
 - `ApiClientProvider`, `useApiClient`, `defaultApiClient`,
   type `AppLayerApiClient`
+- Page factories + clients + metas for each migrated admin page:
+  - `createAuditLogsPage`, `AuditLogsClient`, `auditLogsPageMeta`
+  - `createUsersPage`, `UsersClient`, `usersPageMeta`
+  - `createServerStatusPage`, `ServerStatusClient`, `serverStatusPageMeta`
+  - `createBearerTokenPage`, `BearerTokenClient`, `bearerTokenPageMeta`
+  - `createApiKeysPage`, `ApiKeysClient`, `apiKeysPageMeta`
+  - `createWebhooksPage`, `WebhooksClient`, `webhooksPageMeta`
+  - `createLoginPage`, `LoginClient`
 
 ### `@open-elements/nextjs-app-layer/server` (server-only)
 
 - `createAppLayerAuth({ issuer, clientId, clientSecret })`
 - `createBackendProxyHandler({ backendUrl, auth })`
 - `createLogoutHandler({ auth, oidcIssuer, authUrl })`
-- `middlewareConfig`
+- `middlewareConfig` (reference value — see warning below)
 
 ### `@open-elements/nextjs-app-layer/server/next-auth-types`
 
@@ -40,7 +45,16 @@ Side-effect module that augments NextAuth's `Session` type. Apps activate
 it via `import "@open-elements/nextjs-app-layer/server/next-auth-types";`
 inside their own `auth.ts`.
 
-## Wiring (current state — Open CRM)
+### `@open-elements/nextjs-app-layer/layout`
+
+`OERootLayout` — root layout component that renders `<html>` with the
+Montserrat/Lato font variables and the full provider stack
+(`SessionProvider`, `LanguageProvider`, `AppLayerTranslationProvider`,
+`ApiClientProvider`). It is kept on its own entry point so the
+`next/font/google` runtime call does not get pulled into the client-safe
+barrel (which would force every test to mock `next/font/google`).
+
+## Wiring (Open CRM)
 
 ```ts
 // frontend/src/auth.ts
@@ -84,7 +98,7 @@ export const GET = createLogoutHandler({
 export { auth as middleware } from "@/auth";
 
 // `config` MUST be a static literal here. Next.js' build-time analyzer
-// extracts the matcher directly from middleware.ts and does not follow
+// extracts the matcher directly from middleware.ts and does NOT follow
 // re-exports across the workspace-package boundary. Re-exporting the lib's
 // `middlewareConfig` as `config` silently disables the matcher in production
 // — `/_next/static/*` requests get routed through the auth middleware and
@@ -97,15 +111,32 @@ export const config = {
 ```
 
 ```tsx
-// frontend/src/app/layout.tsx (excerpt)
-<SessionProvider>
-  <LanguageProvider translations={appTranslations}>
-    <AppLayerTranslationProvider>
-      <ApiClientProvider>{children}</ApiClientProvider>
-    </AppLayerTranslationProvider>
-  </LanguageProvider>
-</SessionProvider>
+// frontend/src/app/layout.tsx
+import type { Metadata } from "next";
+import { OERootLayout } from "@open-elements/nextjs-app-layer/layout";
+import { translations } from "@/lib/i18n";
+import "./globals.css";
+
+export const metadata: Metadata = {
+  title: "Open CRM",
+  description: "CRM system by Open Elements",
+};
+
+export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
+  return <OERootLayout translations={translations}>{children}</OERootLayout>;
+}
 ```
+
+```tsx
+// frontend/src/app/(app)/admin/audit-logs/page.tsx
+import { auth } from "@/auth";
+import { createAuditLogsPage } from "@open-elements/nextjs-app-layer";
+export default createAuditLogsPage({ auth });
+```
+
+The same 2-line shape applies to `users/page.tsx`, `admin/status/page.tsx`,
+`admin/token/page.tsx`, `api-keys/page.tsx`, `webhooks/page.tsx`, and
+`login/page.tsx`.
 
 ## OE conventions this lib assumes
 

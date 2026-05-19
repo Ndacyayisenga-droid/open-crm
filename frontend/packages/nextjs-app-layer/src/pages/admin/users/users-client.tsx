@@ -10,11 +10,11 @@ import {
   TableHead,
   TableHeader,
   TableRow,
+  TablePagination,
 } from "@open-elements/ui";
-import { useTranslations } from "@/lib/i18n";
-import { TablePagination } from "@open-elements/ui";
-import { getUsers } from "@/lib/api";
-import type { Page, UserDto } from "@/lib/types";
+import { useAppLayerTranslations } from "../../../translations/provider";
+import { useApiClient } from "../../../hooks/api-client";
+import type { Page, UserDto } from "../../../api/types";
 
 export const PAGE_SIZE_OPTIONS = [10, 20, 50, 100, 200] as const;
 export const DEFAULT_PAGE_SIZE = 20;
@@ -29,7 +29,8 @@ function readStoredPageSize(): number {
 }
 
 export function UsersClient() {
-  const t = useTranslations();
+  const t = useAppLayerTranslations();
+  const api = useApiClient();
   const [data, setData] = useState<Page<UserDto> | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -40,7 +41,7 @@ export function UsersClient() {
     setLoading(true);
     setError(null);
     try {
-      const result = await getUsers({ page, size: pageSize });
+      const result = await api.getUsers({ page, size: pageSize });
       setData(result);
     } catch (err: unknown) {
       console.error("Failed to load users", err);
@@ -49,7 +50,7 @@ export function UsersClient() {
     } finally {
       setLoading(false);
     }
-  }, [page, pageSize, t.users.loadError]);
+  }, [api, page, pageSize, t.users.loadError]);
 
   useEffect(() => {
     fetchUsers();
@@ -60,9 +61,7 @@ export function UsersClient() {
 
   return (
     <div>
-      <h1 className="mb-6 font-heading text-2xl font-bold text-oe-dark">
-        {t.users.title}
-      </h1>
+      <h1 className="mb-6 font-heading text-2xl font-bold text-oe-dark">{t.users.title}</h1>
 
       {loading ? (
         <div className="space-y-3" data-testid="users-loading">
@@ -119,9 +118,7 @@ export function UsersClient() {
                         </div>
                       )}
                     </TableCell>
-                    <TableCell className="font-medium text-oe-dark">
-                      {user.name}
-                    </TableCell>
+                    <TableCell className="font-medium text-oe-dark">{user.name}</TableCell>
                     <TableCell className="text-oe-gray">{user.email}</TableCell>
                   </TableRow>
                 ))}

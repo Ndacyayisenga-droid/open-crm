@@ -2,10 +2,10 @@
 
 import { useEffect, useState } from "react";
 import { HealthStatus } from "@open-elements/ui";
-import { useTranslations } from "@/lib/i18n";
+import { useAppLayerTranslations } from "../../../translations/provider";
 
 export function ServerStatusClient() {
-  const t = useTranslations();
+  const t = useAppLayerTranslations();
   const [healthy, setHealthy] = useState<boolean | null>(null);
 
   useEffect(() => {
@@ -20,7 +20,16 @@ export function ServerStatusClient() {
       <h1 className="mb-6 font-heading text-2xl font-bold text-oe-dark">
         {t.nav.serverStatus}
       </h1>
-      {healthy !== null && <HealthStatus healthy={healthy} translations={{ title: t.health.title, statusUp: t.health.statusUp, statusDown: t.health.statusDown }} />}
+      {healthy !== null && (
+        <HealthStatus
+          healthy={healthy}
+          translations={{
+            title: t.health.title,
+            statusUp: t.health.statusUp,
+            statusDown: t.health.statusDown,
+          }}
+        />
+      )}
     </div>
   );
 }

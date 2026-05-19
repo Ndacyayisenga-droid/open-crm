@@ -1,26 +1,51 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Check, Copy, KeyRound, Plus, Trash2 } from "lucide-react";
-import { Button, DeleteConfirmDialog, Input, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, Skeleton } from "@open-elements/ui";
-import { useTranslations } from "@/lib/i18n";
-import { TablePagination, TooltipIconButton } from "@open-elements/ui";
-import { getApiKeys, createApiKey, deleteApiKey } from "@/lib/api";
-import type { ApiKeyDto, ApiKeyCreatedDto, Page } from "@/lib/types";
+import { AlertCircle, Check, Copy, KeyRound, Plus, Trash2 } from "lucide-react";
+import {
+  Button,
+  DeleteConfirmDialog,
+  Input,
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  Skeleton,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+  TablePagination,
+  TooltipIconButton,
+} from "@open-elements/ui";
+import { useAppLayerTranslations } from "../../translations/provider";
+import { useApiClient } from "../../hooks/api-client";
+import type { ApiKeyDto, ApiKeyCreatedDto, Page } from "../../api/types";
+
+export const PAGE_SIZE_OPTIONS = [10, 20, 50, 100, 200] as const;
+export const DEFAULT_PAGE_SIZE = 20;
+export const PAGE_SIZE_STORAGE_KEY = "pageSize.apiKeys";
+
+function readStoredPageSize(): number {
+  if (typeof window === "undefined") return DEFAULT_PAGE_SIZE;
+  const stored = localStorage.getItem(PAGE_SIZE_STORAGE_KEY);
+  const parsed = Number(stored);
+  if ((PAGE_SIZE_OPTIONS as readonly number[]).includes(parsed)) return parsed;
+  return DEFAULT_PAGE_SIZE;
+}
 
 export function ApiKeysClient() {
-  const t = useTranslations();
+  const t = useAppLayerTranslations();
+  const api = useApiClient();
   const [data, setData] = useState<Page<ApiKeyDto> | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [page, setPage] = useState(0);
-  const [pageSize, setPageSize] = useState(() => {
-    if (typeof window === "undefined") return 20;
-    const stored = localStorage.getItem("pageSize.apiKeys");
-    const parsed = Number(stored);
-    if ([10, 20, 50, 100, 200].includes(parsed)) return parsed;
-    localStorage.setItem("pageSize.apiKeys", "20");
-    return 20;
-  });
+  const [pageSize, setPageSize] = useState<number>(() => readStoredPageSize());
   const [deleteTarget, setDeleteTarget] = useState<ApiKeyDto | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
@@ -32,13 +57,18 @@ export function ApiKeysClient() {
 
   const fetchApiKeys = useCallback(async () => {
     setLoading(true);
+    setError(null);
     try {
-      const result = await getApiKeys({ page, size: pageSize });
+      const result = await api.getApiKeys({ page, size: pageSize });
       setData(result);
+    } catch (err: unknown) {
+      console.error("Failed to load API keys", err);
+      setError(t.apiKeys.loadError);
+      setData(null);
     } finally {
       setLoading(false);
     }
-  }, [page, pageSize]);
+  }, [api, page, pageSize, t.apiKeys.loadError]);
 
   useEffect(() => {
     fetchApiKeys();
@@ -52,16 +82,14 @@ export function ApiKeysClient() {
     setCreateError(null);
     setCreateSubmitting(true);
     try {
-      const result = await createApiKey({ name: createName.trim() });
+      const result = await api.createApiKey({ name: createName.trim() });
       setCreateOpen(false);
       setCreateName("");
       setCreateError(null);
       setCreatedKey(result);
       setCopied(false);
     } catch (e) {
-      setCreateError(
-        e instanceof Error ? e.message : t.apiKeys.createDialog.error,
-      );
+      setCreateError(e instanceof Error ? e.message : t.apiKeys.createDialog.error);
     } finally {
       setCreateSubmitting(false);
     }
@@ -77,7 +105,7 @@ export function ApiKeysClient() {
   const handleDelete = async () => {
     if (!deleteTarget) return;
     try {
-      await deleteApiKey(deleteTarget.id);
+      await api.deleteApiKey(deleteTarget.id);
       setDeleteTarget(null);
       setDeleteError(null);
       fetchApiKeys();
@@ -91,11 +119,8 @@ export function ApiKeysClient() {
 
   return (
     <div>
-      {/* Header */}
       <div className="mb-6 flex items-center justify-between">
-        <h1 className="font-heading text-2xl font-bold text-oe-dark">
-          {t.apiKeys.title}
-        </h1>
+        <h1 className="font-heading text-2xl font-bold text-oe-dark">{t.apiKeys.title}</h1>
         <Button
           onClick={() => {
             setCreateName("");
@@ -108,16 +133,26 @@ export function ApiKeysClient() {
         </Button>
       </div>
 
-      {/* Loading */}
       {loading ? (
-        <div className="space-y-3">
+        <div className="space-y-3" data-testid="api-keys-loading">
           {Array.from({ length: 5 }).map((_, i) => (
             <Skeleton key={i} className="h-12 w-full" />
           ))}
         </div>
+      ) : error ? (
+        <div
+          className="flex flex-col items-center justify-center py-16 text-center"
+          data-testid="api-keys-error"
+          role="alert"
+        >
+          <AlertCircle className="mb-4 h-12 w-12 text-oe-red/70" />
+          <p className="text-oe-red">{error}</p>
+        </div>
       ) : !data || data.content.length === 0 ? (
-        /* Empty state */
-        <div className="flex flex-col items-center justify-center py-16 text-center">
+        <div
+          className="flex flex-col items-center justify-center py-16 text-center"
+          data-testid="api-keys-empty"
+        >
           <KeyRound className="mb-4 h-12 w-12 text-oe-gray/50" />
           <p className="mb-4 text-oe-gray">{t.apiKeys.empty}</p>
           <Button
@@ -132,47 +167,27 @@ export function ApiKeysClient() {
         </div>
       ) : (
         <>
-          {/* Table */}
           <div className="overflow-hidden rounded-lg border border-oe-gray-light">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-oe-gray-light bg-oe-gray-lightest">
-                  <th className="px-4 py-3 text-left font-medium text-oe-gray">
-                    {t.apiKeys.columns.name}
-                  </th>
-                  <th className="px-4 py-3 text-left font-medium text-oe-gray">
-                    {t.apiKeys.columns.key}
-                  </th>
-                  <th className="hidden px-4 py-3 text-left font-medium text-oe-gray md:table-cell">
-                    {t.apiKeys.columns.createdBy}
-                  </th>
-                  <th className="hidden px-4 py-3 text-left font-medium text-oe-gray md:table-cell">
-                    {t.apiKeys.columns.createdAt}
-                  </th>
-                  <th className="px-4 py-3 text-right font-medium text-oe-gray w-20">
-                    {t.apiKeys.columns.actions}
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>{t.apiKeys.columns.name}</TableHead>
+                  <TableHead>{t.apiKeys.columns.key}</TableHead>
+                  <TableHead className="hidden md:table-cell">{t.apiKeys.columns.createdBy}</TableHead>
+                  <TableHead className="hidden md:table-cell">{t.apiKeys.columns.createdAt}</TableHead>
+                  <TableHead className="w-20 text-right">{t.apiKeys.columns.actions}</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
                 {data.content.map((apiKey) => (
-                  <tr
-                    key={apiKey.id}
-                    className="border-b border-oe-gray-light last:border-0"
-                  >
-                    <td className="px-4 py-3 font-medium text-oe-dark">
-                      {apiKey.name}
-                    </td>
-                    <td className="px-4 py-3 font-mono text-sm text-oe-gray">
-                      {apiKey.keyPrefix}
-                    </td>
-                    <td className="hidden px-4 py-3 text-oe-gray md:table-cell">
-                      {apiKey.createdBy}
-                    </td>
-                    <td className="hidden px-4 py-3 text-oe-gray md:table-cell">
+                  <TableRow key={apiKey.id}>
+                    <TableCell className="font-medium text-oe-dark">{apiKey.name}</TableCell>
+                    <TableCell className="font-mono text-sm text-oe-gray">{apiKey.keyPrefix}</TableCell>
+                    <TableCell className="hidden text-oe-gray md:table-cell">{apiKey.createdBy}</TableCell>
+                    <TableCell className="hidden text-oe-gray md:table-cell">
                       {new Date(apiKey.createdAt).toLocaleString()}
-                    </td>
-                    <td className="px-4 py-3 text-right">
+                    </TableCell>
+                    <TableCell className="text-right">
                       <TooltipIconButton
                         icon={<Trash2 />}
                         tone="destructive"
@@ -182,11 +197,11 @@ export function ApiKeysClient() {
                           setDeleteError(null);
                         }}
                       />
-                    </td>
-                  </tr>
+                    </TableCell>
+                  </TableRow>
                 ))}
-              </tbody>
-            </table>
+              </TableBody>
+            </Table>
           </div>
 
           <TablePagination
@@ -194,8 +209,8 @@ export function ApiKeysClient() {
             pageSize={pageSize}
             totalElements={totalElements}
             totalPages={totalPages}
-            pageSizeOptions={[10, 20, 50, 100, 200]}
-            storageKey="pageSize.apiKeys"
+            pageSizeOptions={PAGE_SIZE_OPTIONS}
+            storageKey={PAGE_SIZE_STORAGE_KEY}
             translations={t.apiKeys.pagination}
             onPageChange={setPage}
             onPageSizeChange={setPageSize}
@@ -208,9 +223,7 @@ export function ApiKeysClient() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>{t.apiKeys.createDialog.title}</DialogTitle>
-            <DialogDescription>
-              {t.apiKeys.createDialog.nameLabel}
-            </DialogDescription>
+            <DialogDescription>{t.apiKeys.createDialog.nameLabel}</DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <Input
@@ -224,18 +237,13 @@ export function ApiKeysClient() {
                 if (e.key === "Enter") handleCreate();
               }}
             />
-            {createError && (
-              <p className="text-sm text-oe-red">{createError}</p>
-            )}
+            {createError && <p className="text-sm text-oe-red">{createError}</p>}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setCreateOpen(false)}>
               {t.apiKeys.createDialog.cancel}
             </Button>
-            <Button
-              onClick={handleCreate}
-              disabled={createSubmitting}
-            >
+            <Button onClick={handleCreate} disabled={createSubmitting}>
               {t.apiKeys.createDialog.create}
             </Button>
           </DialogFooter>
@@ -255,9 +263,7 @@ export function ApiKeysClient() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>{t.apiKeys.keyDialog.title}</DialogTitle>
-            <DialogDescription>
-              {t.apiKeys.keyDialog.warning}
-            </DialogDescription>
+            <DialogDescription>{t.apiKeys.keyDialog.warning}</DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <div className="rounded-lg border border-oe-gray-light bg-oe-gray-lightest p-4">
@@ -265,11 +271,7 @@ export function ApiKeysClient() {
                 {createdKey?.key}
               </code>
             </div>
-            <Button
-              variant="outline"
-              className="w-full"
-              onClick={handleCopy}
-            >
+            <Button variant="outline" className="w-full" onClick={handleCopy}>
               {copied ? (
                 <>
                   <Check className="mr-2 h-4 w-4" />
