@@ -6,69 +6,69 @@ package changes from a workspace symlink to a registry install.
 
 ## Step 1: Switch dependency to npm
 
-- [ ] `frontend/package.json`: replace `"@open-elements/nextjs-app-layer": "workspace:*"`
+- [x] `frontend/package.json`: replace `"@open-elements/nextjs-app-layer": "workspace:*"`
       with `"@open-elements/nextjs-app-layer": "^0.1.0"`.
 
 **Acceptance criteria:**
 
-- [ ] `package.json` parses; no other deps changed.
+- [x] `package.json` parses; no other deps changed.
 
 **Related behaviors:** `pnpm install` resolves the lib from npm.
 
 ## Step 2: Remove the in-repo lib copy and the workspace file
 
-- [ ] Delete `frontend/packages/nextjs-app-layer/` (the entire directory).
-- [ ] Delete `frontend/pnpm-workspace.yaml` (no remaining workspace members).
+- [x] Delete `frontend/packages/nextjs-app-layer/` (the entire directory).
+- [x] Delete `frontend/pnpm-workspace.yaml` (no remaining workspace members).
 
 **Acceptance criteria:**
 
-- [ ] `ls frontend/packages` returns "No such file or directory".
-- [ ] `ls frontend/pnpm-workspace.yaml` returns "No such file or directory".
+- [x] `ls frontend/packages` returns "No such file or directory".
+- [x] `ls frontend/pnpm-workspace.yaml` returns "No such file or directory".
 
 **Related behaviors:** Workspace file is removed; In-repo lib copy is removed.
 
 ## Step 3: Update the Tailwind `@source` glob
 
-- [ ] In `frontend/src/app/globals.css`, replace the line
+- [x] In `frontend/src/app/globals.css`, replace the line
       `@source "../../packages/nextjs-app-layer/src/**/*.{ts,tsx}";`
       with `@source "../../node_modules/@open-elements/nextjs-app-layer/src";`
       (matching how `@open-elements/ui` is wired).
 
 **Acceptance criteria:**
 
-- [ ] The glob targets the npm-installed source under `node_modules`.
+- [x] The glob targets the npm-installed source under `node_modules`.
 
 **Related behaviors:** Tailwind sees lib classes via `node_modules`.
 
 ## Step 4: `pnpm install` resolves the npm package
 
-- [ ] Run `pnpm install` (regenerates the lockfile entry).
-- [ ] Verify `node_modules/@open-elements/nextjs-app-layer/package.json` is a
+- [x] Run `pnpm install` (regenerates the lockfile entry).
+- [x] Verify `node_modules/@open-elements/nextjs-app-layer/package.json` is a
       regular npm install (no symlink), and `pnpm-lock.yaml` references the
       npm registry with an integrity hash.
 
 **Acceptance criteria:**
 
-- [ ] `frontend/node_modules/@open-elements/nextjs-app-layer/package.json`
+- [x] `frontend/node_modules/@open-elements/nextjs-app-layer/package.json`
       shows `version: "0.1.0"`.
-- [ ] No `link:` entries point into `packages/` in `pnpm-lock.yaml`.
+- [x] No `link:` entries point into `packages/` in `pnpm-lock.yaml`.
 
 **Related behaviors:** `pnpm install` resolves the lib from npm; Lockfile
 points at the npm registry.
 
 ## Step 5: Verify the build
 
-- [ ] Run `pnpm --filter open-crm-frontend build`.
-- [ ] Spot-check `.next/server/middleware-manifest.json` for the canonical
+- [x] Run `pnpm --filter open-crm-frontend build`.
+- [x] Spot-check `.next/server/middleware-manifest.json` for the canonical
       matcher (the spec-098 production fix).
-- [ ] `grep -r "packages/nextjs-app-layer" frontend/` (excluding
+- [x] `grep -r "packages/nextjs-app-layer" frontend/` (excluding
       `node_modules`) returns nothing.
 
 **Acceptance criteria:**
 
-- [ ] Build exits 0.
-- [ ] `.next/standalone/` is emitted.
-- [ ] Middleware matcher includes `_next/static`, `_next/image`, `login`,
+- [x] Build exits 0.
+- [x] `.next/standalone/` is emitted.
+- [x] Middleware matcher includes `_next/static`, `_next/image`, `login`,
       `api/auth`, `api/logout`, asset extensions.
 
 **Related behaviors:** Next.js build succeeds; Middleware matcher is
@@ -76,20 +76,20 @@ preserved; `transpilePackages` still applies.
 
 ## Step 6: Run the test suite
 
-- [ ] Run `pnpm --filter open-crm-frontend test`.
+- [x] Run `pnpm --filter open-crm-frontend test`.
 
 **Acceptance criteria:**
 
-- [ ] All previously passing tests still pass (no new failures introduced
+- [x] All previously passing tests still pass (no new failures introduced
       by the migration).
 
 **Related behaviors:** App test suite passes; No regression in test count.
 
 ## Step 7: Flip INDEX to `done` and open the PR
 
-- [ ] `specs/INDEX.md` for spec 099 → `done`.
-- [ ] Push branch; open PR referencing #20 ("Closes #20").
-- [ ] Watch CI (backend / frontend / docker).
+- [x] `specs/INDEX.md` for spec 099 → `done`.
+- [x] Push branch; open PR referencing #20 ("Closes #20").
+- [x] Watch CI (backend / frontend / docker).
 
 ---
 
