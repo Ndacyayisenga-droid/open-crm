@@ -37,6 +37,10 @@ export { createBearerTokenPage } from "./pages/admin/token/page";
 export { BearerTokenClient } from "./pages/admin/token/bearer-token-client";
 export { bearerTokenPageMeta } from "./pages/admin/token/meta";
 
+export { createApiKeysPage } from "./pages/api-keys/page";
+export { ApiKeysClient } from "./pages/api-keys/api-keys-client";
+export { apiKeysPageMeta } from "./pages/api-keys/meta";
+
 export type {
   Page,
   UserDto,
