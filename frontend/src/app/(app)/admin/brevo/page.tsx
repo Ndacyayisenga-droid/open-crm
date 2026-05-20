@@ -1,6 +1,6 @@
 import { auth } from "@/auth";
-import { ForbiddenPage } from "@/components/forbidden-page";
-import { ROLE_IT_ADMIN } from "@/lib/roles";
+import { ForbiddenPage } from "@open-elements/nextjs-app-layer";
+import { ROLE_IT_ADMIN } from "@open-elements/nextjs-app-layer";
 import { BrevoPageClient } from "./brevo-page-client";
 
 export default async function BrevoPage() {

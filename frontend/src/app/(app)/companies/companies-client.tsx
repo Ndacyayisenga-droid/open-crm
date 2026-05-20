@@ -8,12 +8,12 @@ import { Plus, Trash2, Building2, Printer, Pencil, MessageSquarePlus, FileDown, 
 import { Button, Input, TagMultiSelect, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, Table, TableBody, TableCell, TableHead, TableHeader, TableRow, Skeleton } from "@open-elements/ui";
 import { useTranslations } from "@/lib/i18n";
 import { ActionIconButton, CopyToClipboardButton, ExternalLinkButton, TablePagination, TooltipIconButton } from "@open-elements/ui";
-import { AddCommentDialog } from "@/components/add-comment-dialog";
+import { AddCommentDialog } from "@open-elements/nextjs-app-layer";
 import { CompanyDeleteDialog } from "@/components/company-delete-dialog";
 import { CsvExportDialog } from "@/components/csv-export-dialog";
 import { getCompanies, deleteCompany, getCompanyLogoUrl, createCompanyComment, getCompanyExportUrl, getTags, ForbiddenError } from "@/lib/api";
 import type { CompanyDto, Page } from "@/lib/types";
-import { hasRole, ROLE_ADMIN } from "@/lib/roles";
+import { hasRole, ROLE_ADMIN } from "@open-elements/nextjs-app-layer";
 
 function WebsiteCell({ value }: { readonly value: string | null }) {
   if (!value) return <TableCell className="text-oe-gray-mid">—</TableCell>;

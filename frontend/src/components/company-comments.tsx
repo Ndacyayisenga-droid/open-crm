@@ -3,13 +3,13 @@
 import { useCallback, useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import { MessageSquarePlus, X } from "lucide-react";
-import { Button, DeleteConfirmDialog, Tooltip, TooltipTrigger, TooltipContent, Card, CardContent, CardHeader, CardTitle, Skeleton, MarkdownView } from "@open-elements/ui";
+import { Button, DeleteConfirmDialog, Tooltip, TooltipTrigger, TooltipContent, Card, CardContent, CardHeader, CardTitle, Skeleton, MarkdownView, TranslateButton } from "@open-elements/ui";
 import { useTranslations } from "@/lib/i18n";
-import { AddCommentDialog } from "@/components/add-comment-dialog";
-import { TranslateButton } from "@/components/translate-button";
-import { getCompanyComments, createCompanyComment, deleteCompanyComment, ForbiddenError } from "@/lib/api";
+import { AddCommentDialog } from "@open-elements/nextjs-app-layer";
+import { useTranslationConfig } from "@/lib/use-translation-config";
+import { getCompanyComments, createCompanyComment, deleteCompanyComment, ForbiddenError, translateText } from "@/lib/api";
 import type { CommentDto } from "@/lib/types";
-import { hasRole, ROLE_ADMIN } from "@/lib/roles";
+import { hasRole, ROLE_ADMIN } from "@open-elements/nextjs-app-layer";
 
 function formatDate(dateString: string, language: string): string {
   const date = new Date(dateString);
@@ -29,6 +29,7 @@ interface CompanyCommentsProps {
 
 export function CompanyComments({ companyId, totalCount }: CompanyCommentsProps) {
   const t = useTranslations();
+  const { configured } = useTranslationConfig();
   const S = t.companies.comments;
   const { data: session } = useSession();
   const canDelete = hasRole(session, ROLE_ADMIN);
@@ -132,7 +133,23 @@ export function CompanyComments({ companyId, totalCount }: CompanyCommentsProps)
                     {comment.author?.name ?? "—"} &middot; {formatDate(comment.createdAt, "de")}
                   </p>
                   <div className="flex items-center">
-                    <TranslateButton text={comment.text} size="md" />
+                    <TranslateButton
+                      text={comment.text}
+                      size="md"
+                      configured={configured}
+                      onTranslate={(text, lang) => translateText(text, lang as "de" | "en")}
+                      translations={{
+                        button: t.translation.translate,
+                        dialog: {
+                          title: t.translation.title,
+                          loading: t.translation.loading,
+                          error: t.translation.error,
+                          copy: t.translation.copy,
+                          copied: t.translation.copied,
+                          close: t.translation.close,
+                        },
+                      }}
+                    />
                     <Tooltip>
                       <TooltipTrigger asChild>
                         <span>

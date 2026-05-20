@@ -5,18 +5,19 @@ import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import Link from "next/link";
 import { Pencil, Trash2, Users, Building2 } from "lucide-react";
-import { Button, Card, CardContent, CardHeader, CardTitle, DetailField, Separator, Tooltip, TooltipContent, TooltipTrigger, TagChips, MarkdownView } from "@open-elements/ui";
+import { Button, Card, CardContent, CardHeader, CardTitle, DetailField, Separator, Tooltip, TooltipContent, TooltipTrigger, TagChips, MarkdownView, TranslateButton } from "@open-elements/ui";
 import type { TagDto } from "@open-elements/ui";
 import { useTranslations } from "@/lib/i18n";
 import { CompanyDeleteDialog } from "@/components/company-delete-dialog";
 import { CompanyComments } from "@/components/company-comments";
-import { TranslateButton } from "@/components/translate-button";
-import { deleteCompany, ForbiddenError, getCompanyLogoUrl, getTag } from "@/lib/api";
+import { useTranslationConfig } from "@/lib/use-translation-config";
+import { deleteCompany, ForbiddenError, getCompanyLogoUrl, getTag, translateText } from "@/lib/api";
 import type { CompanyDto } from "@/lib/types";
-import { hasRole, ROLE_ADMIN } from "@/lib/roles";
+import { hasRole, ROLE_ADMIN } from "@open-elements/nextjs-app-layer";
 
 export function CompanyDetail({ company }: { readonly company: CompanyDto }) {
   const t = useTranslations();
+  const { configured } = useTranslationConfig();
   const S = t.companies;
   const router = useRouter();
   const { data: session } = useSession();
@@ -168,7 +169,23 @@ export function CompanyDetail({ company }: { readonly company: CompanyDto }) {
         <div className="mt-4">
           <div className="flex items-center gap-2">
             <h3 className="text-sm font-medium text-oe-gray-mid">{S.detail.description}</h3>
-            <TranslateButton text={company.description} size="sm" />
+            <TranslateButton
+              text={company.description}
+              size="sm"
+              configured={configured}
+              onTranslate={(text, lang) => translateText(text, lang as "de" | "en")}
+              translations={{
+                button: t.translation.translate,
+                dialog: {
+                  title: t.translation.title,
+                  loading: t.translation.loading,
+                  error: t.translation.error,
+                  copy: t.translation.copy,
+                  copied: t.translation.copied,
+                  close: t.translation.close,
+                },
+              }}
+            />
           </div>
           <div className="mt-1 text-sm">
             <MarkdownView content={company.description} />

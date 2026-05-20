@@ -7,12 +7,10 @@ import { Activity, Bell, Building2, FileText, KeyRound, RefreshCw, Settings, Tag
 import { Sidebar, NavItem, CollapsibleGroup, TooltipProvider } from "@open-elements/ui";
 import { useTranslations } from "@/lib/i18n";
 import { getCurrentUser } from "@/lib/api";
-import { hasRole, ROLE_IT_ADMIN } from "@/lib/roles";
-
-const ADMIN_PREFIXES = ["/admin", "/api-keys", "/webhooks"];
+import { hasRole, ROLE_IT_ADMIN } from "@open-elements/nextjs-app-layer";
 
 function isAdminRoute(pathname: string): boolean {
-  return ADMIN_PREFIXES.some((prefix) => pathname.startsWith(prefix));
+  return pathname.startsWith("/admin");
 }
 
 function CrmSidebar() {
@@ -56,8 +54,8 @@ function CrmSidebar() {
               <NavItem href="/admin/status" icon={<Activity className="h-5 w-5" />} label={t.nav.serverStatus} active={pathname.startsWith("/admin/status")} indented />
               <NavItem href="/admin/token" icon={<KeyRound className="h-5 w-5" />} label={t.nav.bearerToken} active={pathname.startsWith("/admin/token")} indented />
               <NavItem href="/admin/brevo" icon={<RefreshCw className="h-5 w-5" />} label={t.nav.brevo} active={pathname.startsWith("/admin/brevo")} indented />
-              <NavItem href="/api-keys" icon={<KeyRound className="h-5 w-5" />} label={t.nav.apiKeys} active={pathname.startsWith("/api-keys")} indented />
-              <NavItem href="/webhooks" icon={<Webhook className="h-5 w-5" />} label={t.nav.webhooks} active={pathname.startsWith("/webhooks")} indented />
+              <NavItem href="/admin/api-keys" icon={<KeyRound className="h-5 w-5" />} label={t.nav.apiKeys} active={pathname.startsWith("/admin/api-keys")} indented />
+              <NavItem href="/admin/webhooks" icon={<Webhook className="h-5 w-5" />} label={t.nav.webhooks} active={pathname.startsWith("/admin/webhooks")} indented />
               <NavItem href="/admin/users" icon={<Users className="h-5 w-5" />} label={t.nav.users} active={pathname.startsWith("/admin/users")} indented />
               <NavItem href="/admin/audit-logs" icon={<FileText className="h-5 w-5" />} label={t.nav.auditLogs} active={pathname.startsWith("/admin/audit-logs")} indented />
             </CollapsibleGroup>
