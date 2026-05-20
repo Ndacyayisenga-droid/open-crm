@@ -11,26 +11,26 @@ Three structural cleanups bundled into one wave of releases:
 
 ## Step 1: Bump library dependencies
 
-- [ ] `frontend/package.json`:
+- [x] `frontend/package.json`:
   - `@open-elements/ui`: `^0.6.0` → `^0.8.0` (TranslateButton + TranslateDialog).
   - `@open-elements/nextjs-app-layer`: `^0.1.0` → `^0.2.0` (admin defaultRoute).
-- [ ] `pnpm install` regenerates the lockfile against the new versions.
+- [x] `pnpm install` regenerates the lockfile against the new versions.
 
 **Related behaviors:** Both libs are on the new releases; pnpm-lock.yaml
 reflects the matching resolutions.
 
 ## Step 2: Move admin pages under `/admin/`
 
-- [ ] Move `frontend/src/app/(app)/api-keys/page.tsx` → `frontend/src/app/(app)/admin/api-keys/page.tsx`.
-- [ ] Move `frontend/src/app/(app)/webhooks/page.tsx` → `frontend/src/app/(app)/admin/webhooks/page.tsx`.
-- [ ] Delete the now-empty `api-keys/` and `webhooks/` directories.
+- [x] Move `frontend/src/app/(app)/api-keys/page.tsx` → `frontend/src/app/(app)/admin/api-keys/page.tsx`.
+- [x] Move `frontend/src/app/(app)/webhooks/page.tsx` → `frontend/src/app/(app)/admin/webhooks/page.tsx`.
+- [x] Delete the now-empty `api-keys/` and `webhooks/` directories.
 
 **Related behaviors:** `/admin/api-keys` and `/admin/webhooks` render the page;
 old `/api-keys` and `/webhooks` URLs return 404.
 
 ## Step 3: Update sidebar links and active-route matching
 
-- [ ] In `frontend/src/app/(app)/layout.tsx` (`CrmSidebar`):
+- [x] In `frontend/src/app/(app)/layout.tsx` (`CrmSidebar`):
   - `NavItem href="/api-keys"` → `href="/admin/api-keys"`.
   - `NavItem href="/webhooks"` → `href="/admin/webhooks"`.
   - Update `active` matchers accordingly.
@@ -42,17 +42,17 @@ sub-menu auto-opens on any admin route.
 
 ## Step 4: Delete pass-through wrapper files
 
-- [ ] Delete:
+- [x] Delete:
   - `frontend/src/components/session-provider.tsx`
   - `frontend/src/components/forbidden-page.tsx`
   - `frontend/src/components/add-comment-dialog.tsx`
   - `frontend/src/lib/roles.ts`
   - `frontend/src/lib/forbidden-error.ts`
-- [ ] Delete their tests:
+- [x] Delete their tests:
   - `frontend/src/components/__tests__/forbidden-page.test.tsx`
   - `frontend/src/lib/__tests__/roles.test.ts`
   - `frontend/src/lib/__tests__/forbidden-error.test.ts`
-- [ ] Update every importer to point directly at
+- [x] Update every importer to point directly at
   `@open-elements/nextjs-app-layer`.
 
 **Related behaviors:** Pass-through wrapper files are deleted; no
@@ -60,11 +60,11 @@ consumer references a deleted path.
 
 ## Step 5: Replace local translate components with ui-lib
 
-- [ ] Delete `frontend/src/components/translate-dialog.tsx`.
-- [ ] Delete `frontend/src/components/translate-button.tsx`.
-- [ ] Delete `frontend/src/components/__tests__/translate-button.test.tsx`
+- [x] Delete `frontend/src/components/translate-dialog.tsx`.
+- [x] Delete `frontend/src/components/translate-button.tsx`.
+- [x] Delete `frontend/src/components/__tests__/translate-button.test.tsx`
       (the new lib carries equivalent tests).
-- [ ] Update the five usage sites (`company-detail.tsx`,
+- [x] Update the five usage sites (`company-detail.tsx`,
       `contact-detail.tsx`, `company-comments.tsx`, `contact-comments.tsx`,
       `task-comments.tsx`) to:
   - Import `TranslateButton` from `@open-elements/ui`.
@@ -81,21 +81,21 @@ configured, hides when not, opens dialog on click.
 
 ## Step 6: Verify and tidy
 
-- [ ] `pnpm install && pnpm --filter open-crm-frontend build` exits 0.
-- [ ] `pnpm --filter open-crm-frontend test` reports the same pass count
+- [x] `pnpm install && pnpm --filter open-crm-frontend build` exits 0.
+- [x] `pnpm --filter open-crm-frontend test` reports the same pass count
       as before (minus the deleted wrapper-tests).
-- [ ] `grep -r "@/components/session-provider\|@/components/forbidden-page\|@/components/add-comment-dialog\|@/components/translate-button\|@/components/translate-dialog\|@/lib/roles\|@/lib/forbidden-error" frontend/src` returns zero.
-- [ ] `grep -r "translate-button\|translate-dialog" frontend/src` returns zero.
-- [ ] `.next/server/middleware-manifest.json` matcher still contains the
+- [x] `grep -r "@/components/session-provider\|@/components/forbidden-page\|@/components/add-comment-dialog\|@/components/translate-button\|@/components/translate-dialog\|@/lib/roles\|@/lib/forbidden-error" frontend/src` returns zero.
+- [x] `grep -r "translate-button\|translate-dialog" frontend/src` returns zero.
+- [x] `.next/server/middleware-manifest.json` matcher still contains the
       canonical `_next/static` / `_next/image` / `login` / `api/auth` /
       `api/logout` / asset-extension exclusions (regression guard for
       `e89b66f`).
 
 ## Step 7: INDEX done + push + PR
 
-- [ ] `specs/INDEX.md` for spec 100 → `done`.
-- [ ] Push branch; open PR referencing #22 (`Closes #22`).
-- [ ] CI will be red until the two lib PRs are merged and published.
+- [x] `specs/INDEX.md` for spec 100 → `done`.
+- [x] Push branch; open PR referencing #22 (`Closes #22`).
+- [x] CI will be red until the two lib PRs are merged and published.
       Once `@open-elements/ui@0.8.0` and `@open-elements/nextjs-app-layer@0.2.0`
       reach npm, re-run CI.
 
