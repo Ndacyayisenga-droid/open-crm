@@ -5,14 +5,14 @@ import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import Link from "next/link";
 import { Mail, Pencil, Trash2, User } from "lucide-react";
-import { Button, Card, CardContent, CardHeader, CardTitle, DeleteConfirmDialog, DetailField, Separator, Tooltip, TooltipContent, TooltipTrigger, TagChips, MarkdownView } from "@open-elements/ui";
+import { Button, Card, CardContent, CardHeader, CardTitle, DeleteConfirmDialog, DetailField, Separator, Tooltip, TooltipContent, TooltipTrigger, TagChips, MarkdownView, TranslateButton } from "@open-elements/ui";
 import type { TagDto } from "@open-elements/ui";
 import { useTranslations, useLanguage } from "@/lib/i18n";
 import { ContactComments } from "@/components/contact-comments";
-import { TranslateButton } from "@/components/translate-button";
-import { deleteContact, ForbiddenError, getContactPhotoUrl, getTag } from "@/lib/api";
+import { useTranslationConfig } from "@/lib/use-translation-config";
+import { deleteContact, ForbiddenError, getContactPhotoUrl, getTag, translateText } from "@/lib/api";
 import type { ContactDto } from "@/lib/types";
-import { hasRole, ROLE_ADMIN } from "@/lib/roles";
+import { hasRole, ROLE_ADMIN } from "@open-elements/nextjs-app-layer";
 
 function genderLabel(gender: string | null, t: ReturnType<typeof useTranslations>): string | null {
   if (!gender) return null;
@@ -56,6 +56,7 @@ export function ContactDetail({ contact }: ContactDetailProps) {
   const t = useTranslations();
   const S = t.contacts;
   const { language } = useLanguage();
+  const { configured } = useTranslationConfig();
   const router = useRouter();
   const { data: session } = useSession();
   const canDelete = hasRole(session, ROLE_ADMIN);
@@ -216,7 +217,23 @@ export function ContactDetail({ contact }: ContactDetailProps) {
         <div className="mt-4">
           <div className="flex items-center gap-2">
             <h3 className="text-sm font-medium text-oe-gray-mid">{S.detail.description}</h3>
-            <TranslateButton text={contact.description} size="sm" />
+            <TranslateButton
+              text={contact.description}
+              size="sm"
+              configured={configured}
+              onTranslate={(text, lang) => translateText(text, lang as "de" | "en")}
+              translations={{
+                button: t.translation.translate,
+                dialog: {
+                  title: t.translation.title,
+                  loading: t.translation.loading,
+                  error: t.translation.error,
+                  copy: t.translation.copy,
+                  copied: t.translation.copied,
+                  close: t.translation.close,
+                },
+              }}
+            />
           </div>
           <div className="mt-1 text-sm">
             <MarkdownView content={contact.description} />

@@ -29,7 +29,7 @@ import type { TagDto } from "@open-elements/ui";
 import type { TaskStatus } from "./types";
 
 import { auth } from "@/auth";
-import { ForbiddenError } from "./forbidden-error";
+import { ForbiddenError } from "@open-elements/nextjs-app-layer";
 
 export { ForbiddenError };
 

@@ -24,6 +24,8 @@ vi.mock("@/lib/api", () => ({
   createContactComment: vi.fn(),
   deleteContactComment: vi.fn(),
   getContactPhotoUrl: (...args: unknown[]) => mockGetContactPhotoUrl(...args),
+  getTranslationSettings: () => Promise.resolve({ configured: false }),
+  translateText: vi.fn(),
 }));
 
 function makeContact(overrides: Partial<ContactDto> = {}): ContactDto {

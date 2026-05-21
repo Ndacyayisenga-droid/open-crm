@@ -24,6 +24,8 @@ vi.mock("@/lib/api", () => ({
   createCompanyComment: vi.fn(),
   deleteCompanyComment: vi.fn(),
   getCompanyLogoUrl: (...args: unknown[]) => mockGetCompanyLogoUrl(...args),
+  getTranslationSettings: () => Promise.resolve({ configured: false }),
+  translateText: vi.fn(),
 }));
 
 const testCompany: CompanyDto = {

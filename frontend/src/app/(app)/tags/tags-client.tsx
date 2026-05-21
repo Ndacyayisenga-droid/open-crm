@@ -19,7 +19,7 @@ import {
 import {useTranslations} from "@/lib/i18n";
 import {TablePagination, TooltipIconButton} from "@open-elements/ui";
 import {deleteTag, ForbiddenError, getTags} from "@/lib/api";
-import {hasRole, ROLE_ADMIN} from "@/lib/roles";
+import {hasRole, ROLE_ADMIN} from "@open-elements/nextjs-app-layer";
 import type {Page} from "@/lib/types";
 
 export function TagsClient() {
