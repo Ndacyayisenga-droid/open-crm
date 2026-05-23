@@ -1,6 +1,7 @@
 package com.openelements.crm.contact;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
@@ -58,6 +59,9 @@ class ContactPhotoHeicWebpIntegrationTest {
     private UserRepository userRepository;
 
     @Autowired
+    private HeicSupportCheck heicSupportCheck;
+
+    @Autowired
     private org.springframework.jdbc.core.JdbcTemplate jdbcTemplate;
 
     @BeforeEach
@@ -108,8 +112,13 @@ class ContactPhotoHeicWebpIntegrationTest {
     @Test
     void heicUploadReturns415WhenLibheifIsUnavailable() throws Exception {
         // The test environment ships no /heic-probe/sample.heic on the classpath,
-        // so HeicSupportCheck leaves heicAvailable = false. The service must
-        // return 415 *before* attempting to decode.
+        // so HeicSupportCheck leaves heicAvailable = false. Assert that
+        // precondition explicitly — if a future change provides the probe
+        // sample, this test would silently flip to validating the wrong path
+        // without this guard.
+        assertFalse(heicSupportCheck.isHeicAvailable(),
+            "Test depends on heicAvailable=false; remove the probe sample or mock the bean");
+
         final ContactEntity contact = newContact();
         final MockMultipartFile file = new MockMultipartFile("file", "p.heic", "image/heic",
             new byte[]{0x00, 0x00, 0x00, 0x18, 'f', 't', 'y', 'p', 'h', 'e', 'i', 'c'});
@@ -124,6 +133,8 @@ class ContactPhotoHeicWebpIntegrationTest {
 
     @Test
     void heifContentTypeAlsoReturns415WhenLibheifIsUnavailable() throws Exception {
+        assertFalse(heicSupportCheck.isHeicAvailable());
+
         final ContactEntity contact = newContact();
         final MockMultipartFile file = new MockMultipartFile("file", "p.heif", "image/heif",
             new byte[]{0x00, 0x00, 0x00, 0x18, 'f', 't', 'y', 'p', 'm', 'i', 'f', '1'});

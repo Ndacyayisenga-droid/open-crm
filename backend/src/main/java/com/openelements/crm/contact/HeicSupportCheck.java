@@ -28,6 +28,11 @@ public class HeicSupportCheck {
 
     private volatile boolean heicAvailable = false;
 
+    /**
+     * Returns whether the runtime can decode HEIC images. The value is set
+     * exactly once during startup by {@link #verifyHeicSupport()}. Callers
+     * must short-circuit HEIC uploads with 415 when this returns {@code false}.
+     */
     public boolean isHeicAvailable() {
         return heicAvailable;
     }
@@ -43,8 +48,8 @@ public class HeicSupportCheck {
         }
         try (InputStream sample = getClass().getResourceAsStream(PROBE_RESOURCE)) {
             if (sample == null) {
-                log.warn("HEIC: probe sample {} is missing on classpath. "
-                    + "Reader is registered; runtime libheif status is unknown until first upload.",
+                log.error("HEIC: probe sample {} is missing on classpath. "
+                    + "HEIC uploads will be rejected with 415 until the sample is provided.",
                     PROBE_RESOURCE);
                 return;
             }
@@ -59,9 +64,9 @@ public class HeicSupportCheck {
                     + "HEIC uploads will be rejected with 415.");
             }
         } catch (final UnsatisfiedLinkError | Exception e) {
-            log.error("HEIC: support check failed — {}. Install libheif1 + "
+            log.error("HEIC: support check failed. Install libheif1 + "
                 + "libheif-plugin-libde265 in the runtime image. HEIC uploads will be "
-                + "rejected with 415.", e.toString());
+                + "rejected with 415.", e);
         }
     }
 }

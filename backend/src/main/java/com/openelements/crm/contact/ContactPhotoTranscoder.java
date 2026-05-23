@@ -38,6 +38,7 @@ final class ContactPhotoTranscoder {
     private static final String JPEG_FORMAT = "jpeg";
     private static final String WEBP_FORMAT = "webp";
     private static final String HEIF_FORMAT = "heif";
+    private static final String HEIC_FORMAT = "heic";
 
     private ContactPhotoTranscoder() {
     }
@@ -51,7 +52,7 @@ final class ContactPhotoTranscoder {
 
     static byte[] webpToJpeg(final byte[] webpBytes) {
         Objects.requireNonNull(webpBytes, "webpBytes must not be null");
-        final OrientedImage decoded = readImageWithOrientation(webpBytes, WEBP_FORMAT, "WebP");
+        final OrientedImage decoded = readImageWithOrientation(webpBytes, new String[]{WEBP_FORMAT}, "WebP");
         final BufferedImage upright = applyExifOrientation(decoded.image, decoded.orientation);
         final BufferedImage flattened = flattenOnWhite(upright);
         return encodeJpeg(flattened);
@@ -59,7 +60,10 @@ final class ContactPhotoTranscoder {
 
     static byte[] heicToJpeg(final byte[] heicBytes) {
         Objects.requireNonNull(heicBytes, "heicBytes must not be null");
-        final OrientedImage decoded = readImageWithOrientation(heicBytes, HEIF_FORMAT, "HEIC");
+        // NightMonkeys may register the reader under either name; the probe in
+        // HeicSupportCheck accepts both, so the transcoder must too.
+        final OrientedImage decoded = readImageWithOrientation(heicBytes,
+            new String[]{HEIF_FORMAT, HEIC_FORMAT}, "HEIC");
         final BufferedImage upright = applyExifOrientation(decoded.image, decoded.orientation);
         // HEIC files are always opaque — no alpha channel to flatten — but
         // routing through the same pipeline keeps the encoder happy and is
@@ -84,17 +88,24 @@ final class ContactPhotoTranscoder {
     /**
      * Reads via the explicit reader pipeline so we can inspect the source
      * metadata and extract EXIF orientation. Falls back to orientation 1
-     * (normal) when no orientation hint is present.
+     * (normal) when no orientation hint is present. The {@code formatNames}
+     * are tried in order — the first one with a registered reader wins.
      */
     private static OrientedImage readImageWithOrientation(final byte[] bytes,
-                                                          final String formatName,
+                                                          final String[] formatNames,
                                                           final String label) {
-        final Iterator<ImageReader> readers = ImageIO.getImageReadersByFormatName(formatName);
-        if (!readers.hasNext()) {
+        ImageReader reader = null;
+        for (final String formatName : formatNames) {
+            final Iterator<ImageReader> readers = ImageIO.getImageReadersByFormatName(formatName);
+            if (readers.hasNext()) {
+                reader = readers.next();
+                break;
+            }
+        }
+        if (reader == null) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
                 "Could not decode " + label);
         }
-        final ImageReader reader = readers.next();
         try (final ImageInputStream iis = ImageIO.createImageInputStream(new ByteArrayInputStream(bytes))) {
             if (iis == null) {
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
@@ -170,16 +181,24 @@ final class ContactPhotoTranscoder {
     }
 
     private static int mapStandardOrientation(final String value) {
-        // ImageIO's standard tree uses textual orientation names.
+        // ImageIO's standard tree uses textual names that describe the
+        // rotation/flip required to display the stored pixels correctly. EXIF
+        // orientation tags use the inverse convention: orientation 6 means the
+        // stored image is rotated 90° clockwise, so display correction is 90°
+        // CCW ("Rotate90" in standard-tree terms). The mapping below converts
+        // standard-tree → EXIF orientation values so applyExifOrientation can
+        // produce an upright image. The orientation 6/8 happy-path tests are
+        // @Disabled pending fixtures; the mapping should be re-verified once
+        // those tests land.
         return switch (value) {
             case "Normal" -> 1;
             case "FlipH" -> 2;
             case "Rotate180" -> 3;
             case "FlipV" -> 4;
             case "FlipHRotate90" -> 5;
-            case "Rotate270" -> 6;
+            case "Rotate90" -> 6;
             case "FlipVRotate90" -> 7;
-            case "Rotate90" -> 8;
+            case "Rotate270" -> 8;
             default -> 1;
         };
     }
