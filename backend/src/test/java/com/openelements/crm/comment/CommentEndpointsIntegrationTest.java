@@ -2,6 +2,7 @@ package com.openelements.crm.comment;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.openelements.crm.AbstractDbTest;
 import com.openelements.crm.company.CompanyEntity;
 import com.openelements.crm.company.CompanyRepository;
 import com.openelements.crm.contact.ContactEntity;
@@ -11,17 +12,13 @@ import com.openelements.spring.base.services.comment.CommentRepository;
 import com.openelements.spring.base.services.comment.CommentService;
 import com.openelements.spring.base.services.user.SystemUser;
 import com.openelements.spring.base.services.user.UserRepository;
-import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
-import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.oauth2.jwt.Jwt;
-import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 
@@ -43,10 +40,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * spec 094. Covers happy paths, validation, mismatched ownership, listing, and
  * the cascade behaviour on owner deletion.
  */
-@SpringBootTest
-@AutoConfigureMockMvc
-@ActiveProfiles("test")
-class CommentEndpointsIntegrationTest {
+class CommentEndpointsIntegrationTest extends AbstractDbTest {
 
     @Autowired
     private MockMvc mockMvc;
@@ -84,17 +78,9 @@ class CommentEndpointsIntegrationTest {
         }
     }
 
-    @AfterEach
-    void clean() {
-        // Delete owners first to clear join-table rows, then the orphaned comments.
-        jdbcTemplate.update("DELETE FROM company_comments");
-        jdbcTemplate.update("DELETE FROM contact_comments");
-        contactRepository.deleteAll();
-        companyRepository.deleteAll();
-        commentRepository.deleteAll();
-    }
+    // Cleanup is handled by AbstractDbTest's @AfterEach TRUNCATE.
 
-    private static MockHttpServletRequestBuilder asUser(MockHttpServletRequestBuilder builder, List<String> roles) {
+private static MockHttpServletRequestBuilder asUser(MockHttpServletRequestBuilder builder, List<String> roles) {
         final Jwt jwt = Jwt.withTokenValue("token")
             .header("alg", "none")
             .subject("test-user")

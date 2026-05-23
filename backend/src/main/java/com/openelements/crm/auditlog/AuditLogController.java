@@ -68,6 +68,9 @@ public class AuditLogController {
             + "Used to populate the entity-type filter dropdown. Requires the IT-ADMIN role."
     )
     public List<String> listEntityTypes() {
-        return auditLogService.findAllEntityTypes();
+        // Sort explicitly: the upstream findAllEntityTypes() returns rows in
+        // the database's natural order (insertion order on H2, undefined on
+        // Postgres) — the endpoint's contract is "sorted alphabetically".
+        return auditLogService.findAllEntityTypes().stream().sorted().toList();
     }
 }

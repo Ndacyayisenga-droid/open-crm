@@ -1,14 +1,12 @@
 package com.openelements.crm.security;
 
+import com.openelements.crm.AbstractDbTest;
 import com.openelements.spring.base.security.roles.Roles;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
-import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.oauth2.jwt.Jwt;
-import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 
@@ -32,10 +30,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * that 403 is returned when the role is missing, and that a non-403 status is
  * returned when the role is present.
  */
-@SpringBootTest
-@AutoConfigureMockMvc
-@ActiveProfiles("test")
-class SecurityRoleIntegrationTest {
+class SecurityRoleIntegrationTest extends AbstractDbTest {
 
     @Autowired
     private MockMvc mockMvc;

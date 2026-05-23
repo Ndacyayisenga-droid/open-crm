@@ -1,5 +1,6 @@
 package com.openelements.crm.auditlog;
 
+import com.openelements.crm.AbstractDbTest;
 import com.openelements.spring.base.services.audit.AuditAction;
 import com.openelements.spring.base.services.audit.AuditLogDataService;
 import com.openelements.spring.base.services.user.UserEntity;
@@ -7,13 +8,10 @@ import com.openelements.spring.base.services.user.UserRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
-import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.oauth2.jwt.Jwt;
-import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 
@@ -36,10 +34,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * focuses on the API contract — pagination, filter combinations, and the
  * entity-types listing.
  */
-@SpringBootTest
-@AutoConfigureMockMvc
-@ActiveProfiles("test")
-class AuditLogControllerTest {
+class AuditLogControllerTest extends AbstractDbTest {
 
     @Autowired
     private MockMvc mockMvc;

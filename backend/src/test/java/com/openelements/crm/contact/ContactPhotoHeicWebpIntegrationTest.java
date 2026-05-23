@@ -8,23 +8,20 @@ import static org.springframework.security.test.web.servlet.request.SecurityMock
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.openelements.crm.AbstractDbTest;
 import com.openelements.spring.base.services.user.SystemUser;
 import com.openelements.spring.base.services.user.UserRepository;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
-import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
-import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.oauth2.jwt.Jwt;
-import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 import org.springframework.test.web.servlet.request.MockMultipartHttpServletRequestBuilder;
@@ -41,10 +38,7 @@ import org.springframework.test.web.servlet.request.MockMultipartHttpServletRequ
  * has no probe sample on classpath, so {@code HeicSupportCheck.isHeicAvailable()}
  * naturally returns false) and the malformed-WebP rejection path.
  */
-@SpringBootTest
-@AutoConfigureMockMvc
-@ActiveProfiles("test")
-class ContactPhotoHeicWebpIntegrationTest {
+class ContactPhotoHeicWebpIntegrationTest extends AbstractDbTest {
 
     private static final String FIXTURE_TODO =
         "Awaiting test fixtures — see TODO.md: HEIC- und WebP-Testfixtures bereitstellen";
@@ -73,12 +67,9 @@ class ContactPhotoHeicWebpIntegrationTest {
         }
     }
 
-    @AfterEach
-    void clean() {
-        contactRepository.deleteAll();
-    }
+    // Cleanup is handled by AbstractDbTest's @AfterEach TRUNCATE.
 
-    private static <T extends MockHttpServletRequestBuilder> T asUser(final T builder) {
+private static <T extends MockHttpServletRequestBuilder> T asUser(final T builder) {
         final List<String> roles = List.of();
         final Jwt jwt = Jwt.withTokenValue("token")
             .header("alg", "none")

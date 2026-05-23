@@ -3,6 +3,7 @@ package com.openelements.crm.updates;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.openelements.crm.AbstractDbTest;
 import com.openelements.crm.company.CompanyEntity;
 import com.openelements.crm.company.CompanyRepository;
 import com.openelements.crm.contact.ContactEntity;
@@ -19,15 +20,12 @@ import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
-import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.oauth2.jwt.Jwt;
-import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 
@@ -40,10 +38,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-@SpringBootTest
-@AutoConfigureMockMvc
-@ActiveProfiles("test")
-class CommentAuditEmissionTest {
+class CommentAuditEmissionTest extends AbstractDbTest {
 
     @Autowired
     private MockMvc mockMvc;
@@ -67,17 +62,14 @@ class CommentAuditEmissionTest {
     private ObjectMapper objectMapper;
 
     @BeforeEach
-    void cleanState() {
-        jdbcTemplate.update("DELETE FROM audit_log");
+    void seedSystemUser() {
+        // AbstractDbTest's @AfterEach truncates the previous test's data;
+        // we only need to (re)seed the SystemUser row here.
         if (userRepository.findBySub(SystemUser.SUB).isEmpty()) {
             jdbcTemplate.update(
                 "INSERT INTO users (id, sub, name, created_at, updated_at) VALUES (?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)",
                 SystemUser.ID, SystemUser.SUB, SystemUser.NAME);
         }
-        jdbcTemplate.update("DELETE FROM company_comments");
-        jdbcTemplate.update("DELETE FROM contact_comments");
-        contactRepository.deleteAll();
-        companyRepository.deleteAll();
     }
 
     private static MockHttpServletRequestBuilder asUser(final MockHttpServletRequestBuilder builder, final List<String> roles) {

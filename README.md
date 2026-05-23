@@ -146,6 +146,19 @@ docker compose down -v    # removes database data
 cd backend && ./mvnw clean verify
 ```
 
+> Backend tests run against a real PostgreSQL 17 container started by
+> [Testcontainers](https://testcontainers.com/). **Docker (Docker Desktop or
+> any Docker-compatible daemon) must be running** before `./mvnw test` /
+> `./mvnw verify` is invoked. For faster local iteration, enable container
+> reuse by adding the following line to `~/.testcontainers.properties`:
+>
+> ```properties
+> testcontainers.reuse.enable=true
+> ```
+>
+> With reuse on, the same Postgres container survives between `mvn test`
+> runs and the per-suite startup cost drops from ~3–5 s to ~200 ms.
+
 **Frontend:**
 
 ```bash
