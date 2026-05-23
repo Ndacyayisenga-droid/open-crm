@@ -2,6 +2,7 @@ import { describe, it, expect, afterEach, beforeEach, vi } from "vitest";
 import { screen, cleanup, fireEvent, waitFor } from "@testing-library/react";
 import { ContactForm } from "@/components/contact-form";
 import { de } from "@/lib/i18n/de";
+import { en } from "@/lib/i18n/en";
 import { renderWithProviders } from "@/test/test-utils";
 import type { ContactDto, CompanyDto } from "@/lib/types";
 
@@ -379,25 +380,33 @@ describe("ContactForm", () => {
       });
     });
 
-    it("should show client-side error for unsupported formats (GIF)", async () => {
+    it.each([
+      ["image/gif", "photo.gif"],
+      ["image/webp", "photo.webp"],
+      ["image/svg+xml", "photo.svg"],
+      ["image/heic", "photo.heic"],
+      ["application/pdf", "photo.pdf"],
+    ])("should show client-side error for unsupported format %s", async (mime, name) => {
       renderWithProviders(<ContactForm />);
 
       const fileInput = document.querySelector("input[type='file']") as HTMLInputElement;
-      const gifFile = new File(["fake-gif-data"], "photo.gif", {
-        type: "image/gif",
-      });
+      const file = new File(["fake-data"], name, { type: mime });
 
-      fireEvent.change(fileInput, { target: { files: [gifFile] } });
+      fireEvent.change(fileInput, { target: { files: [file] } });
 
       await waitFor(() => {
         expect(screen.getByText(S.imageInvalidFormat)).toBeInTheDocument();
       });
     });
 
-    it("error message lists both JPEG and PNG", () => {
-      // Sanity-check the i18n string so a stray rewording does not pass silently.
-      expect(S.imageInvalidFormat).toMatch(/JPEG/);
-      expect(S.imageInvalidFormat).toMatch(/PNG/);
+    it("German error message lists both JPEG and PNG", () => {
+      expect(de.contacts.form.imageInvalidFormat).toMatch(/JPEG/);
+      expect(de.contacts.form.imageInvalidFormat).toMatch(/PNG/);
+    });
+
+    it("English error message lists both JPEG and PNG", () => {
+      expect(en.contacts.form.imageInvalidFormat).toMatch(/JPEG/);
+      expect(en.contacts.form.imageInvalidFormat).toMatch(/PNG/);
     });
   });
 });

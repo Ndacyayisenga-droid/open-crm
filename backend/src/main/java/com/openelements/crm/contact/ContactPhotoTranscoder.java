@@ -60,16 +60,17 @@ final class ContactPhotoTranscoder {
             throw new IllegalStateException("No JPEG ImageWriter available in this JDK");
         }
         final ImageWriter writer = writers.next();
-        final ImageWriteParam params = writer.getDefaultWriteParam();
-        params.setCompressionMode(ImageWriteParam.MODE_EXPLICIT);
-        params.setCompressionQuality(JPEG_QUALITY);
-
         final ByteArrayOutputStream out = new ByteArrayOutputStream();
-        try (final MemoryCacheImageOutputStream ios = new MemoryCacheImageOutputStream(out)) {
-            writer.setOutput(ios);
-            writer.write(null, new IIOImage(flattened, null, null), params);
-        } catch (final IOException e) {
-            throw new IllegalStateException("Failed to encode JPEG", e);
+        try {
+            final ImageWriteParam params = writer.getDefaultWriteParam();
+            params.setCompressionMode(ImageWriteParam.MODE_EXPLICIT);
+            params.setCompressionQuality(JPEG_QUALITY);
+            try (final MemoryCacheImageOutputStream ios = new MemoryCacheImageOutputStream(out)) {
+                writer.setOutput(ios);
+                writer.write(null, new IIOImage(flattened, null, null), params);
+            } catch (final IOException e) {
+                throw new IllegalStateException("Failed to encode JPEG", e);
+            }
         } finally {
             writer.dispose();
         }

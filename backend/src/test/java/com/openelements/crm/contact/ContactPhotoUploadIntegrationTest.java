@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -241,10 +242,70 @@ class ContactPhotoUploadIntegrationTest {
         for (final String ct : rejected) {
             final MockMultipartFile file = new MockMultipartFile("file", "x.bin", ct, new byte[]{0x01});
             mockMvc.perform(asUser(upload(contact).file(file)))
-                .andExpect(status().isBadRequest());
+                .andExpect(status().isBadRequest())
+                .andExpect(status().reason(org.hamcrest.Matchers.containsString("JPEG and PNG")));
             assertNull(contactRepository.findByIdOrThrow(contact.getId()).getPhoto(),
                 "Photo must remain unmodified after rejected upload (ct=" + ct + ")");
         }
+    }
+
+    @Test
+    void missingContentTypeIsRejectedAs400() throws Exception {
+        final ContactEntity contact = newContact();
+        // Pass null content-type — MockMultipartFile stores it and Spring forwards
+        // the null to the service. The service must map null → 400, not 500.
+        final MockMultipartFile file = new MockMultipartFile("file", "x.bin", null, new byte[]{0x01});
+        mockMvc.perform(asUser(upload(contact).file(file)))
+            .andExpect(status().isBadRequest());
+        assertNull(contactRepository.findByIdOrThrow(contact.getId()).getPhoto());
+    }
+
+    @Test
+    void pngTranscodeStripsTextChunkMetadata() throws Exception {
+        final ContactEntity contact = newContact();
+        // Build a PNG carrying a tEXt chunk via PNGMetadata.
+        final BufferedImage src = new BufferedImage(8, 8, BufferedImage.TYPE_INT_RGB);
+        final Graphics2D g = src.createGraphics();
+        g.setColor(Color.YELLOW);
+        g.fillRect(0, 0, 8, 8);
+        g.dispose();
+
+        final ByteArrayOutputStream pngOut = new ByteArrayOutputStream();
+        final javax.imageio.ImageWriter pngWriter =
+            ImageIO.getImageWritersByFormatName("png").next();
+        try (final javax.imageio.stream.MemoryCacheImageOutputStream ios =
+                 new javax.imageio.stream.MemoryCacheImageOutputStream(pngOut)) {
+            pngWriter.setOutput(ios);
+            final javax.imageio.metadata.IIOMetadata md = pngWriter.getDefaultImageMetadata(
+                javax.imageio.ImageTypeSpecifier.createFromBufferedImageType(BufferedImage.TYPE_INT_RGB),
+                null);
+            final String nativeFormat = md.getNativeMetadataFormatName();
+            final javax.imageio.metadata.IIOMetadataNode root = new javax.imageio.metadata.IIOMetadataNode(nativeFormat);
+            final javax.imageio.metadata.IIOMetadataNode text = new javax.imageio.metadata.IIOMetadataNode("tEXt");
+            final javax.imageio.metadata.IIOMetadataNode entry = new javax.imageio.metadata.IIOMetadataNode("tEXtEntry");
+            entry.setAttribute("keyword", "Comment");
+            entry.setAttribute("value", "PNG-SECRET-METADATA");
+            text.appendChild(entry);
+            root.appendChild(text);
+            md.mergeTree(nativeFormat, root);
+            pngWriter.write(null, new javax.imageio.IIOImage(src, null, md), null);
+        } finally {
+            pngWriter.dispose();
+        }
+        final byte[] pngBytes = pngOut.toByteArray();
+        assertTrue(new String(pngBytes, java.nio.charset.StandardCharsets.ISO_8859_1)
+                .contains("PNG-SECRET-METADATA"),
+            "Source PNG should carry the metadata before upload");
+
+        final MockMultipartFile file = new MockMultipartFile("file", "p.png", "image/png", pngBytes);
+        mockMvc.perform(asUser(upload(contact).file(file)))
+            .andExpect(status().isOk());
+
+        final byte[] stored = contactRepository.findByIdOrThrow(contact.getId()).getPhoto();
+        assertNotNull(stored);
+        assertTrue(!new String(stored, java.nio.charset.StandardCharsets.ISO_8859_1)
+                .contains("PNG-SECRET-METADATA"),
+            "Transcoded JPEG must not carry the source PNG's tEXt metadata");
     }
 
     // -- GET path --
@@ -256,8 +317,7 @@ class ContactPhotoUploadIntegrationTest {
         final MockMultipartFile file = new MockMultipartFile("file", "p.png", "image/png", pngBytes);
         mockMvc.perform(asUser(upload(contact).file(file))).andExpect(status().isOk());
 
-        mockMvc.perform(asUser(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
-                .get("/api/contacts/" + contact.getId() + "/photo")))
+        mockMvc.perform(asUser(get("/api/contacts/" + contact.getId() + "/photo")))
             .andExpect(status().isOk())
             .andExpect(header().string("Content-Type", MediaType.IMAGE_JPEG_VALUE));
     }

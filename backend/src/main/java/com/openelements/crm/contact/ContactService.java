@@ -253,11 +253,14 @@ public class ContactService extends AbstractDbBackedDataService<ContactEntity, C
     public void uploadPhoto(final UUID id, final byte[] data, final String contentType) {
         Objects.requireNonNull(id, "id must not be null");
         Objects.requireNonNull(data, "data must not be null");
-        Objects.requireNonNull(contentType, "contentType must not be null");
         if (data.length > ImageData.MAX_IMAGE_SIZE) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Photo exceeds 2 MB");
         }
-        final byte[] storedBytes = switch (contentType) {
+        // Treat missing / unrecognized content type as the rejection branch, not
+        // an NPE — the multipart layer hands us null when the client omits the
+        // Content-Type header on the file part.
+        final String type = contentType == null ? "" : contentType;
+        final byte[] storedBytes = switch (type) {
             case "image/jpeg" -> data;
             case "image/png" -> ContactPhotoTranscoder.pngToJpeg(data);
             default -> throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
