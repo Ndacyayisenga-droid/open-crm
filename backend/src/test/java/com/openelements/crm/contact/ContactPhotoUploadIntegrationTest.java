@@ -234,16 +234,17 @@ class ContactPhotoUploadIntegrationTest {
     // -- Rejected content types --
 
     @Test
-    void gifWebpSvgHeicBmpPdfAreRejected() throws Exception {
+    void unsupportedContentTypesAreRejected() throws Exception {
         final ContactEntity contact = newContact();
+        // WebP and HEIC are now accepted (spec 102) so they're not in this list.
         final List<String> rejected = List.of(
-            "image/gif", "image/webp", "image/svg+xml",
-            "image/heic", "image/bmp", "application/pdf");
+            "image/gif", "image/svg+xml", "image/bmp",
+            "image/tiff", "image/avif", "application/pdf");
         for (final String ct : rejected) {
             final MockMultipartFile file = new MockMultipartFile("file", "x.bin", ct, new byte[]{0x01});
             mockMvc.perform(asUser(upload(contact).file(file)))
                 .andExpect(status().isBadRequest())
-                .andExpect(status().reason(org.hamcrest.Matchers.containsString("JPEG and PNG")));
+                .andExpect(status().reason(org.hamcrest.Matchers.containsString("JPEG, PNG, WebP, and HEIC")));
             assertNull(contactRepository.findByIdOrThrow(contact.getId()).getPhoto(),
                 "Photo must remain unmodified after rejected upload (ct=" + ct + ")");
         }

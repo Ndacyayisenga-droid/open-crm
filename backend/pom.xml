@@ -32,6 +32,9 @@
         <springdoc.version>2.8.17</springdoc.version>
         <commons-csv.version>1.12.0</commons-csv.version>
         <cyclonedx.version>2.9.1</cyclonedx.version>
+        <nightmonkeys-heif.version>1.1.0</nightmonkeys-heif.version>
+        <twelvemonkeys-webp.version>3.12.0</twelvemonkeys-webp.version>
+        <maven-enforcer.version>3.5.0</maven-enforcer.version>
     </properties>
 
     <dependencyManagement>
@@ -101,6 +104,20 @@
             <version>0.15.0</version>
         </dependency>
 
+        <!-- HEIC decoding via libheif. Multi-Release JAR — activates under JDK 21+. -->
+        <dependency>
+            <groupId>com.github.gotson.nightmonkeys</groupId>
+            <artifactId>imageio-heif</artifactId>
+            <version>${nightmonkeys-heif.version}</version>
+        </dependency>
+
+        <!-- WebP decoding, pure-Java. No native dependency. -->
+        <dependency>
+            <groupId>com.twelvemonkeys.imageio</groupId>
+            <artifactId>imageio-webp</artifactId>
+            <version>${twelvemonkeys-webp.version}</version>
+        </dependency>
+
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-test</artifactId>
@@ -168,6 +185,27 @@
         </pluginManagement>
 
         <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-enforcer-plugin</artifactId>
+                <version>${maven-enforcer.version}</version>
+                <executions>
+                    <execution>
+                        <id>enforce-jdk-21</id>
+                        <goals>
+                            <goal>enforce</goal>
+                        </goals>
+                        <configuration>
+                            <rules>
+                                <requireJavaVersion>
+                                    <version>[21,)</version>
+                                    <message>NightMonkeys imageio-heif requires JDK 21+; build aborted.</message>
+                                </requireJavaVersion>
+                            </rules>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
             <plugin>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>

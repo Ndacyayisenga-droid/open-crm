@@ -106,4 +106,45 @@ class ContactPhotoTranscoderTest {
         assertEquals((byte) 0xFF, jpegBytes[0]);
         assertEquals((byte) 0xD8, jpegBytes[1]);
     }
+
+    @Test
+    void exifOrientation1ReturnsTheSameImage() {
+        final BufferedImage src = new BufferedImage(8, 4, BufferedImage.TYPE_INT_RGB);
+        final BufferedImage result = ContactPhotoTranscoder.applyExifOrientation(src, 1);
+        assertEquals(src, result, "Orientation 1 should be a no-op");
+    }
+
+    @Test
+    void exifOrientation6SwapsDimensionsToUpright() {
+        // Orientation 6 = "image stored rotated 90° clockwise", i.e. the encoded
+        // pixels are landscape but the intended display is portrait. Applying it
+        // should swap the dimensions.
+        final BufferedImage src = new BufferedImage(40, 20, BufferedImage.TYPE_INT_RGB);
+        final BufferedImage result = ContactPhotoTranscoder.applyExifOrientation(src, 6);
+        assertEquals(20, result.getWidth(), "Width and height should swap for orientation 6");
+        assertEquals(40, result.getHeight());
+    }
+
+    @Test
+    void exifOrientation8SwapsDimensionsToUpright() {
+        final BufferedImage src = new BufferedImage(40, 20, BufferedImage.TYPE_INT_RGB);
+        final BufferedImage result = ContactPhotoTranscoder.applyExifOrientation(src, 8);
+        assertEquals(20, result.getWidth());
+        assertEquals(40, result.getHeight());
+    }
+
+    @Test
+    void exifOrientation3KeepsDimensionsButRotates180() {
+        final BufferedImage src = new BufferedImage(40, 20, BufferedImage.TYPE_INT_RGB);
+        final BufferedImage result = ContactPhotoTranscoder.applyExifOrientation(src, 3);
+        assertEquals(40, result.getWidth(), "Orientation 3 is a 180° rotation; dimensions stay");
+        assertEquals(20, result.getHeight());
+    }
+
+    @Test
+    void exifOrientationOutOfRangeIsTreatedAsIdentity() {
+        final BufferedImage src = new BufferedImage(8, 4, BufferedImage.TYPE_INT_RGB);
+        final BufferedImage result = ContactPhotoTranscoder.applyExifOrientation(src, 99);
+        assertEquals(src, result);
+    }
 }

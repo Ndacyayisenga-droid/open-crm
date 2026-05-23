@@ -350,30 +350,24 @@ describe("ContactForm", () => {
       expect(screen.getByText(S.uploadPhoto)).toBeInTheDocument();
     });
 
-    it("should accept JPEG and PNG via the file input accept attribute", () => {
+    it("file input accept attribute lists all four allowed formats", () => {
       renderWithProviders(<ContactForm />);
       const fileInput = document.querySelector("input[type='file']") as HTMLInputElement;
-      expect(fileInput.accept).toBe("image/jpeg,image/png");
+      expect(fileInput.accept).toBe("image/jpeg,image/png,image/webp,image/heic,image/heif");
     });
 
-    it("should accept a JPEG file without showing an error", async () => {
+    it.each([
+      ["image/jpeg", "photo.jpg"],
+      ["image/png", "photo.png"],
+      ["image/webp", "photo.webp"],
+      ["image/heic", "photo.heic"],
+      ["image/heif", "photo.heif"],
+    ])("should accept %s without showing an error", async (mime, name) => {
       renderWithProviders(<ContactForm />);
       const fileInput = document.querySelector("input[type='file']") as HTMLInputElement;
-      const jpegFile = new File(["fake-jpeg-data"], "photo.jpg", { type: "image/jpeg" });
+      const file = new File(["fake-data"], name, { type: mime });
 
-      fireEvent.change(fileInput, { target: { files: [jpegFile] } });
-
-      await waitFor(() => {
-        expect(screen.queryByText(S.imageInvalidFormat)).not.toBeInTheDocument();
-      });
-    });
-
-    it("should accept a PNG file without showing an error", async () => {
-      renderWithProviders(<ContactForm />);
-      const fileInput = document.querySelector("input[type='file']") as HTMLInputElement;
-      const pngFile = new File(["fake-png-data"], "photo.png", { type: "image/png" });
-
-      fireEvent.change(fileInput, { target: { files: [pngFile] } });
+      fireEvent.change(fileInput, { target: { files: [file] } });
 
       await waitFor(() => {
         expect(screen.queryByText(S.imageInvalidFormat)).not.toBeInTheDocument();
@@ -382,9 +376,10 @@ describe("ContactForm", () => {
 
     it.each([
       ["image/gif", "photo.gif"],
-      ["image/webp", "photo.webp"],
       ["image/svg+xml", "photo.svg"],
-      ["image/heic", "photo.heic"],
+      ["image/bmp", "photo.bmp"],
+      ["image/tiff", "photo.tiff"],
+      ["image/avif", "photo.avif"],
       ["application/pdf", "photo.pdf"],
     ])("should show client-side error for unsupported format %s", async (mime, name) => {
       renderWithProviders(<ContactForm />);
@@ -399,14 +394,18 @@ describe("ContactForm", () => {
       });
     });
 
-    it("German error message lists both JPEG and PNG", () => {
+    it("German error message lists JPEG, PNG, WebP, and HEIC", () => {
       expect(de.contacts.form.imageInvalidFormat).toMatch(/JPEG/);
       expect(de.contacts.form.imageInvalidFormat).toMatch(/PNG/);
+      expect(de.contacts.form.imageInvalidFormat).toMatch(/WebP/);
+      expect(de.contacts.form.imageInvalidFormat).toMatch(/HEIC/);
     });
 
-    it("English error message lists both JPEG and PNG", () => {
+    it("English error message lists JPEG, PNG, WebP, and HEIC", () => {
       expect(en.contacts.form.imageInvalidFormat).toMatch(/JPEG/);
       expect(en.contacts.form.imageInvalidFormat).toMatch(/PNG/);
+      expect(en.contacts.form.imageInvalidFormat).toMatch(/WebP/);
+      expect(en.contacts.form.imageInvalidFormat).toMatch(/HEIC/);
     });
   });
 });

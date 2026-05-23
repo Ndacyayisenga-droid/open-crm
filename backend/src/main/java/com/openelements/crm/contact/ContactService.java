@@ -53,6 +53,7 @@ public class ContactService extends AbstractDbBackedDataService<ContactEntity, C
     private final TagRepository tagRepository;
     private final AuditLogRepository auditLogRepository;
     private final UserService userService;
+    private final HeicSupportCheck heicSupportCheck;
 
     public ContactService(final ContactRepository contactRepository,
                           final CompanyRepository companyRepository,
@@ -61,6 +62,7 @@ public class ContactService extends AbstractDbBackedDataService<ContactEntity, C
                           final TagRepository tagRepository,
                           final AuditLogRepository auditLogRepository,
                           final UserService userService,
+                          final HeicSupportCheck heicSupportCheck,
                           final ApplicationEventPublisher eventPublisher) {
         super((eventPublisher));
         this.contactRepository = Objects.requireNonNull(contactRepository, "contactRepository must not be null");
@@ -70,6 +72,7 @@ public class ContactService extends AbstractDbBackedDataService<ContactEntity, C
         this.tagRepository = Objects.requireNonNull(tagRepository, "tagRepository must not be null");
         this.auditLogRepository = Objects.requireNonNull(auditLogRepository, "auditLogRepository must not be null");
         this.userService = Objects.requireNonNull(userService, "userService must not be null");
+        this.heicSupportCheck = Objects.requireNonNull(heicSupportCheck, "heicSupportCheck must not be null");
     }
 
     /**
@@ -238,17 +241,26 @@ public class ContactService extends AbstractDbBackedDataService<ContactEntity, C
     /**
      * Uploads or replaces the photo for a contact.
      *
-     * <p>Accepts {@code image/jpeg} (stored as-is) and {@code image/png} (transcoded
-     * server-side to JPEG, alpha flattened over white). Any other content type is
-     * rejected with 400. The 2 MB cap is enforced on the raw upload bytes before
-     * any transcoding work.
+     * <p>Accepts {@code image/jpeg} (stored as-is), {@code image/png}, {@code
+     * image/webp}, and {@code image/heic} / {@code image/heif} (all transcoded
+     * server-side to JPEG, alpha flattened over white where applicable, EXIF
+     * orientation applied for WebP/HEIC). Any other content type is rejected
+     * with 400. The 2 MB cap is enforced on the raw upload bytes before any
+     * transcoding work.
+     *
+     * <p>HEIC uploads are rejected with {@code 415 UNSUPPORTED_MEDIA_TYPE} when
+     * the runtime probe reports {@code libheif} unavailable — the JAR ships
+     * with the reader, but the native library must be installed in the runtime
+     * image.
      *
      * @param id          the contact ID
      * @param data        the image bytes
      * @param contentType the MIME content type
-     * @throws ResponseStatusException with 404 if not found, 400 if size exceeds the
-     *                                 cap or content type is not JPEG/PNG, or 400 if
-     *                                 a PNG cannot be decoded
+     * @throws ResponseStatusException with 404 if the contact is missing,
+     *                                 400 if size exceeds the cap, content
+     *                                 type is not allowed, or the input
+     *                                 cannot be decoded, or 415 for HEIC
+     *                                 when libheif is unavailable
      */
     public void uploadPhoto(final UUID id, final byte[] data, final String contentType) {
         Objects.requireNonNull(id, "id must not be null");
@@ -263,8 +275,16 @@ public class ContactService extends AbstractDbBackedDataService<ContactEntity, C
         final byte[] storedBytes = switch (type) {
             case "image/jpeg" -> data;
             case "image/png" -> ContactPhotoTranscoder.pngToJpeg(data);
+            case "image/webp" -> ContactPhotoTranscoder.webpToJpeg(data);
+            case "image/heic", "image/heif" -> {
+                if (!heicSupportCheck.isHeicAvailable()) {
+                    throw new ResponseStatusException(HttpStatus.UNSUPPORTED_MEDIA_TYPE,
+                        "HEIC support is not available in this deployment");
+                }
+                yield ContactPhotoTranscoder.heicToJpeg(data);
+            }
             default -> throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                "Only JPEG and PNG are accepted");
+                "Only JPEG, PNG, WebP, and HEIC are accepted");
         };
         final ContactEntity entity = contactRepository.findByIdOrThrow(id);
         entity.setPhoto(storedBytes);
