@@ -70,17 +70,11 @@ class CommentEndpointsIntegrationTest extends AbstractDbTest {
     private ObjectMapper objectMapper;
 
     @BeforeEach
-    void seedSystemUser() {
-        if (userRepository.findBySub(SystemUser.SUB).isEmpty()) {
-            jdbcTemplate.update(
-                "INSERT INTO users (id, sub, name, created_at, updated_at) VALUES (?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)",
-                SystemUser.ID, SystemUser.SUB, SystemUser.NAME);
-        }
+    void seed() {
+        seedSystemUser();
     }
 
-    // Cleanup is handled by AbstractDbTest's @AfterEach TRUNCATE.
-
-private static MockHttpServletRequestBuilder asUser(MockHttpServletRequestBuilder builder, List<String> roles) {
+    private static MockHttpServletRequestBuilder asUser(MockHttpServletRequestBuilder builder, List<String> roles) {
         final Jwt jwt = Jwt.withTokenValue("token")
             .header("alg", "none")
             .subject("test-user")

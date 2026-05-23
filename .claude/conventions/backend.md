@@ -32,7 +32,7 @@ When building libraries that target backend applications, provide support for Sp
 - **IMPORTANT**: Use **JPA** (Jakarta Persistence API) for data access. Do not use implementation-specific APIs (e.g., Hibernate session or criteria API directly) — always program against the JPA interfaces.
 - Use **[Flyway](https://flywaydb.org/)** for database schema management and migrations in all projects with a database.
 - **PostgreSQL** is the preferred database for test environments and production.
-- **H2** (in-memory) is the preferred database for fast, automated unit/integration tests. In the future, we plan to replace H2 with [Testcontainers](https://www.testcontainers.org/)-based PostgreSQL to test against the same database in all environments.
+- Automated tests run against the same PostgreSQL version as production via [Testcontainers](https://testcontainers.com/). Docker must be available on the developer machine and on CI runners (Linux `ubuntu-latest` ships with it). H2 is no longer used.
 - **IMPORTANT**: Database connection URLs, credentials, and other settings must be configurable via environment variables (see [fullstack-architecture.md](fullstack-architecture.md#configuration)).
 
 ## Data Privacy and GDPR
@@ -60,24 +60,24 @@ Every backend layer must have its own tests. Tests at a higher layer do not repl
 
 **Repository tests (`@DataJpaTest`)**
 - Every repository interface with custom query methods must have a test class.
-- Use `@DataJpaTest` — it auto-configures an embedded H2 database and rolls back after each test. No `@ActiveProfiles` annotation needed.
+- Use `@DataJpaTest` and the project's `AbstractDbTest` so the test runs against a real PostgreSQL container with Flyway-managed schema.
 - Use `TestEntityManager` (`persistAndFlush` + `clear()`) to force real database roundtrips instead of hitting the first-level cache.
 - Test custom query methods, pagination, and database constraints (NOT NULL, unique).
 
 **Service tests (`@SpringBootTest`)**
 - Every service class must have a test class that covers all public methods.
-- Use `@SpringBootTest` with `@ActiveProfiles("test")` and a real H2 database — do not mock repositories.
-- Clean up test data in `@BeforeEach` by deleting via repositories in foreign-key order. Do not use `@Transactional` on service tests — this hides transaction boundary bugs in service methods that are themselves `@Transactional`.
+- Extend `AbstractDbTest` — it provides `@SpringBootTest`, `@AutoConfigureMockMvc`, `@ActiveProfiles("test")`, a shared Postgres container, and per-test `TRUNCATE` cleanup. Do not redeclare those annotations.
+- Do not use `@Transactional` on service tests — this hides transaction boundary bugs in service methods that are themselves `@Transactional`.
 - Test happy paths, validation errors, cross-entity business logic, and edge cases.
 
 **Controller tests (`@SpringBootTest` + `MockMvc`)**
 - Every controller must have a test class that verifies HTTP status codes, request/response serialization, and validation.
-- Use `@SpringBootTest` with `@AutoConfigureMockMvc` and `@ActiveProfiles("test")`.
+- Extend `AbstractDbTest` (which already configures MockMvc).
 
 ### General test rules
 
 - Do not mock repositories or other internal dependencies when the real implementation is fast and available. Mocks add complexity without proportional value in small codebases and miss integration bugs.
-- Use H2 for all automated tests. In the future, Testcontainers with PostgreSQL will replace H2 (see Data Access section).
+- All Spring-based tests run against a real PostgreSQL container via `AbstractDbTest` (see Data Access section). Pure unit tests (no Spring context) do not need to extend it.
 - Test classes live in the same package structure as the code they test.
 
 ## Observability

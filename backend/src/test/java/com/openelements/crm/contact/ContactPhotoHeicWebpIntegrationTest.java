@@ -59,17 +59,11 @@ class ContactPhotoHeicWebpIntegrationTest extends AbstractDbTest {
     private org.springframework.jdbc.core.JdbcTemplate jdbcTemplate;
 
     @BeforeEach
-    void seedSystemUser() {
-        if (userRepository.findBySub(SystemUser.SUB).isEmpty()) {
-            jdbcTemplate.update(
-                "INSERT INTO users (id, sub, name, created_at, updated_at) VALUES (?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)",
-                SystemUser.ID, SystemUser.SUB, SystemUser.NAME);
-        }
+    void seed() {
+        seedSystemUser();
     }
 
-    // Cleanup is handled by AbstractDbTest's @AfterEach TRUNCATE.
-
-private static <T extends MockHttpServletRequestBuilder> T asUser(final T builder) {
+    private static <T extends MockHttpServletRequestBuilder> T asUser(final T builder) {
         final List<String> roles = List.of();
         final Jwt jwt = Jwt.withTokenValue("token")
             .header("alg", "none")

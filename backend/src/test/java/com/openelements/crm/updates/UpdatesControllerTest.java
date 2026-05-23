@@ -52,14 +52,6 @@ class UpdatesControllerTest extends AbstractDbTest {
         alice = ensureUser("alice", "Alice");
     }
 
-    private void seedSystemUser() {
-        if (userRepository.findBySub(SystemUser.SUB).isEmpty()) {
-            jdbcTemplate.update(
-                "INSERT INTO users (id, sub, name, created_at, updated_at) VALUES (?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)",
-                SystemUser.ID, SystemUser.SUB, SystemUser.NAME);
-        }
-    }
-
     private UserEntity ensureUser(final String sub, final String name) {
         return userRepository.findBySub(sub).orElseGet(() -> {
             final UserEntity entity = new UserEntity();

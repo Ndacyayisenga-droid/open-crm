@@ -62,14 +62,8 @@ class CommentAuditEmissionTest extends AbstractDbTest {
     private ObjectMapper objectMapper;
 
     @BeforeEach
-    void seedSystemUser() {
-        // AbstractDbTest's @AfterEach truncates the previous test's data;
-        // we only need to (re)seed the SystemUser row here.
-        if (userRepository.findBySub(SystemUser.SUB).isEmpty()) {
-            jdbcTemplate.update(
-                "INSERT INTO users (id, sub, name, created_at, updated_at) VALUES (?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)",
-                SystemUser.ID, SystemUser.SUB, SystemUser.NAME);
-        }
+    void seed() {
+        seedSystemUser();
     }
 
     private static MockHttpServletRequestBuilder asUser(final MockHttpServletRequestBuilder builder, final List<String> roles) {

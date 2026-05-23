@@ -1,5 +1,7 @@
 package com.openelements.crm;
 
+import com.openelements.spring.base.services.user.SystemUser;
+import com.openelements.spring.base.services.user.UserRepository;
 import org.junit.jupiter.api.AfterEach;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -8,7 +10,6 @@ import org.springframework.boot.testcontainers.service.connection.ServiceConnect
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
 import org.testcontainers.containers.PostgreSQLContainer;
-import org.testcontainers.junit.jupiter.Testcontainers;
 
 /**
  * Shared test base for Spring Boot tests that touch the database. Starts a
@@ -22,11 +23,15 @@ import org.testcontainers.junit.jupiter.Testcontainers;
  *
  * <p>Adding a new table in a Flyway migration requires extending {@link #TABLES_TO_TRUNCATE}.
  * This is intentional — the explicit list keeps the truncate fast and predictable.
+ *
+ * <p>The {@code @Testcontainers} JUnit extension is intentionally not used —
+ * it discovers {@code @Container} fields and does nothing for a manually
+ * started container. The {@code static { POSTGRES.start(); }} block is what
+ * actually brings the container up before any subclass context loads.
  */
 @SpringBootTest
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
-@Testcontainers
 public abstract class AbstractDbTest {
 
     /**
@@ -65,10 +70,29 @@ public abstract class AbstractDbTest {
     @Autowired
     private JdbcTemplate jdbcTemplate;
 
+    @Autowired
+    private UserRepository userRepository;
+
     @AfterEach
     void truncateAllTables() {
         // RESTART IDENTITY keeps sequence-backed columns deterministic; CASCADE
         // drops dependent rows so order of tables is irrelevant.
         jdbcTemplate.execute("TRUNCATE TABLE " + TABLES_TO_TRUNCATE + " RESTART IDENTITY CASCADE");
+    }
+
+    /**
+     * (Re-)inserts the {@link SystemUser} row needed by audit-log / comment
+     * tests that reference {@code SystemUser.ID} as a foreign key. Idempotent:
+     * subclasses call this from their own {@code @BeforeEach} when needed.
+     * The {@code @AfterEach} truncate wipes {@code users}, so the seed must
+     * be re-applied per test method.
+     */
+    protected void seedSystemUser() {
+        if (userRepository.findBySub(SystemUser.SUB).isEmpty()) {
+            jdbcTemplate.update(
+                "INSERT INTO users (id, sub, name, created_at, updated_at) "
+                    + "VALUES (?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)",
+                SystemUser.ID, SystemUser.SUB, SystemUser.NAME);
+        }
     }
 }
