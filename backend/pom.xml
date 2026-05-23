@@ -35,6 +35,7 @@
         <nightmonkeys-heif.version>1.1.0</nightmonkeys-heif.version>
         <twelvemonkeys-webp.version>3.12.0</twelvemonkeys-webp.version>
         <maven-enforcer.version>3.5.0</maven-enforcer.version>
+        <mockwebserver.version>4.12.0</mockwebserver.version>
     </properties>
 
     <dependencyManagement>
@@ -145,6 +146,18 @@
         <dependency>
             <groupId>org.testcontainers</groupId>
             <artifactId>postgresql</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <!-- Meilisearch test container uses Testcontainers' GenericContainer
+             (org.testcontainers:testcontainers is already on the classpath via
+             org.testcontainers:postgresql + junit-jupiter). No dedicated
+             meilisearch artifact exists on Maven Central. -->
+
+        <dependency>
+            <groupId>com.squareup.okhttp3</groupId>
+            <artifactId>mockwebserver</artifactId>
+            <version>${mockwebserver.version}</version>
             <scope>test</scope>
         </dependency>
     </dependencies>

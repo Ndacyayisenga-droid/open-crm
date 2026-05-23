@@ -28,3 +28,14 @@ translation:
   api-url: ${TRANSLATION_API_URL:}
   api-key: ${TRANSLATION_API_KEY:}
   model: ${TRANSLATION_MODEL:}
+
+openelements:
+  search:
+    meilisearch:
+      host: ${MEILI_HOST:http://localhost:7700}
+      master-key: ${MEILI_MASTER_KEY:local-dev-master-key}
+      index-prefix: ${MEILI_INDEX_PREFIX:crm_}
+      request-timeout: 5s
+      sync:
+        enabled: true
+        retry-attempts: 3

@@ -1038,3 +1038,50 @@ export async function translateText(
 
   return response.json();
 }
+
+// Global search API
+
+export interface SearchHit {
+  id: string;
+  label: string;
+  snippet: string | null;
+  highlight: string | null;
+  score: number;
+  ownerType?: "company" | "contact" | "task" | null;
+  ownerId?: string | null;
+}
+
+export interface GlobalSearchResult {
+  query: string;
+  companies: SearchHit[];
+  contacts: SearchHit[];
+  tags: SearchHit[];
+  comments: SearchHit[];
+}
+
+export class SearchUnavailableError extends Error {
+  readonly retryAfterSeconds: number;
+  constructor(retryAfterSeconds: number) {
+    super("Search is initializing");
+    this.retryAfterSeconds = retryAfterSeconds;
+  }
+}
+
+export async function globalSearch(query: string, limit?: number): Promise<GlobalSearchResult> {
+  const params = new URLSearchParams({ q: query });
+  if (limit !== undefined) {
+    params.set("limit", String(limit));
+  }
+  const url = `${baseUrl()}/api/search?${params.toString()}`;
+  const response = await apiFetch(url, { cache: "no-store" });
+
+  if (response.status === 503) {
+    const header = response.headers.get("Retry-After");
+    const retryAfter = header ? parseInt(header, 10) : 5;
+    throw new SearchUnavailableError(Number.isFinite(retryAfter) ? retryAfter : 5);
+  }
+  if (!response.ok) {
+    throw new Error(`Search failed: ${response.status}`);
+  }
+  return response.json();
+}
