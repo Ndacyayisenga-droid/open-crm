@@ -261,7 +261,7 @@ export const en: Translations = {
       cancel: "Cancel",
       errorGeneric: "An error occurred. Please try again.",
       imageTooLarge: "File is too large (max. 2 MB)",
-      imageInvalidFormat: "Invalid file format",
+      imageInvalidFormat: "Please choose a JPEG or PNG file.",
       managedByBrevo: "Managed by Brevo",
     },
     deleteDialog: {

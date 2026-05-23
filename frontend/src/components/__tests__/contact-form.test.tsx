@@ -349,19 +349,55 @@ describe("ContactForm", () => {
       expect(screen.getByText(S.uploadPhoto)).toBeInTheDocument();
     });
 
-    it("should show client-side error for invalid format", async () => {
+    it("should accept JPEG and PNG via the file input accept attribute", () => {
       renderWithProviders(<ContactForm />);
-
       const fileInput = document.querySelector("input[type='file']") as HTMLInputElement;
-      const pngFile = new File(["fake-png-data"], "photo.png", {
-        type: "image/png",
+      expect(fileInput.accept).toBe("image/jpeg,image/png");
+    });
+
+    it("should accept a JPEG file without showing an error", async () => {
+      renderWithProviders(<ContactForm />);
+      const fileInput = document.querySelector("input[type='file']") as HTMLInputElement;
+      const jpegFile = new File(["fake-jpeg-data"], "photo.jpg", { type: "image/jpeg" });
+
+      fireEvent.change(fileInput, { target: { files: [jpegFile] } });
+
+      await waitFor(() => {
+        expect(screen.queryByText(S.imageInvalidFormat)).not.toBeInTheDocument();
       });
+    });
+
+    it("should accept a PNG file without showing an error", async () => {
+      renderWithProviders(<ContactForm />);
+      const fileInput = document.querySelector("input[type='file']") as HTMLInputElement;
+      const pngFile = new File(["fake-png-data"], "photo.png", { type: "image/png" });
 
       fireEvent.change(fileInput, { target: { files: [pngFile] } });
 
       await waitFor(() => {
+        expect(screen.queryByText(S.imageInvalidFormat)).not.toBeInTheDocument();
+      });
+    });
+
+    it("should show client-side error for unsupported formats (GIF)", async () => {
+      renderWithProviders(<ContactForm />);
+
+      const fileInput = document.querySelector("input[type='file']") as HTMLInputElement;
+      const gifFile = new File(["fake-gif-data"], "photo.gif", {
+        type: "image/gif",
+      });
+
+      fireEvent.change(fileInput, { target: { files: [gifFile] } });
+
+      await waitFor(() => {
         expect(screen.getByText(S.imageInvalidFormat)).toBeInTheDocument();
       });
+    });
+
+    it("error message lists both JPEG and PNG", () => {
+      // Sanity-check the i18n string so a stray rewording does not pass silently.
+      expect(S.imageInvalidFormat).toMatch(/JPEG/);
+      expect(S.imageInvalidFormat).toMatch(/PNG/);
     });
   });
 });

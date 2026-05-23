@@ -238,22 +238,34 @@ public class ContactService extends AbstractDbBackedDataService<ContactEntity, C
     /**
      * Uploads or replaces the photo for a contact.
      *
+     * <p>Accepts {@code image/jpeg} (stored as-is) and {@code image/png} (transcoded
+     * server-side to JPEG, alpha flattened over white). Any other content type is
+     * rejected with 400. The 2 MB cap is enforced on the raw upload bytes before
+     * any transcoding work.
+     *
      * @param id          the contact ID
      * @param data        the image bytes
      * @param contentType the MIME content type
-     * @throws ResponseStatusException with 404 if not found, 400 if content type is not JPEG
+     * @throws ResponseStatusException with 404 if not found, 400 if size exceeds the
+     *                                 cap or content type is not JPEG/PNG, or 400 if
+     *                                 a PNG cannot be decoded
      */
     public void uploadPhoto(final UUID id, final byte[] data, final String contentType) {
         Objects.requireNonNull(id, "id must not be null");
         Objects.requireNonNull(data, "data must not be null");
         Objects.requireNonNull(contentType, "contentType must not be null");
-        if (!"image/jpeg".equals(contentType)) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                "Invalid content type: " + contentType + ". Only image/jpeg is allowed.");
+        if (data.length > ImageData.MAX_IMAGE_SIZE) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Photo exceeds 2 MB");
         }
+        final byte[] storedBytes = switch (contentType) {
+            case "image/jpeg" -> data;
+            case "image/png" -> ContactPhotoTranscoder.pngToJpeg(data);
+            default -> throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                "Only JPEG and PNG are accepted");
+        };
         final ContactEntity entity = contactRepository.findByIdOrThrow(id);
-        entity.setPhoto(data);
-        entity.setPhotoContentType(contentType);
+        entity.setPhoto(storedBytes);
+        entity.setPhotoContentType("image/jpeg");
         contactRepository.saveAndFlush(entity);
     }
 

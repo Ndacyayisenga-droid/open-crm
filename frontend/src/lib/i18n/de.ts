@@ -260,7 +260,7 @@ export const de = {
       cancel: "Abbrechen",
       errorGeneric: "Ein Fehler ist aufgetreten. Bitte versuchen Sie es erneut.",
       imageTooLarge: "Datei ist zu groß (max. 2 MB)",
-      imageInvalidFormat: "Ungültiges Dateiformat",
+      imageInvalidFormat: "Bitte eine JPEG- oder PNG-Datei wählen.",
       managedByBrevo: "Wird von Brevo verwaltet",
     },
     deleteDialog: {

@@ -9,6 +9,8 @@ import { createContact, updateContact, getCompaniesForSelect, uploadContactPhoto
 import type { ContactDto, ContactCreateDto, CompanyDto } from "@/lib/types";
 
 const MAX_FILE_SIZE = 2 * 1024 * 1024; // 2MB
+const ALLOWED_CONTACT_PHOTO_TYPES = ["image/jpeg", "image/png"] as const;
+const CONTACT_PHOTO_ACCEPT = ALLOWED_CONTACT_PHOTO_TYPES.join(",");
 
 interface ContactFormProps {
   readonly contact?: ContactDto;
@@ -52,7 +54,7 @@ export function ContactForm({ contact }: ContactFormProps) {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    if (file.type !== "image/jpeg") {
+    if (!ALLOWED_CONTACT_PHOTO_TYPES.includes(file.type as (typeof ALLOWED_CONTACT_PHOTO_TYPES)[number])) {
       setImageError(S.imageInvalidFormat);
       return;
     }
@@ -392,7 +394,7 @@ export function ContactForm({ contact }: ContactFormProps) {
                 <input
                   ref={fileInputRef}
                   type="file"
-                  accept="image/jpeg"
+                  accept={CONTACT_PHOTO_ACCEPT}
                   onChange={handleFileChange}
                   className="hidden"
                 />
