@@ -3,6 +3,12 @@ services:
     ports:
       - "${DB_PORT:-5432}:5432"
 
+  meilisearch:
+    ports:
+      - "${MEILI_PORT:-7700}:7700"
+    environment:
+      MEILI_ENV: development
+
   backend:
     ports:
       - "${BACKEND_PORT:-9081}:8080"

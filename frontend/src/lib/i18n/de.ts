@@ -27,6 +27,7 @@ export const de = {
   },
   nav: {
     updates: "Updates",
+    search: "Suche",
     companies: "Firmen",
     contacts: "Kontakte",
     tags: "Tags",
@@ -56,6 +57,19 @@ export const de = {
     title: "Systemstatus",
     statusUp: "Backend läuft",
     statusDown: "Backend ist nicht erreichbar",
+  },
+  search: {
+    title: "Suche",
+    inputPlaceholder: "Firmen, Kontakte, Tags und Kommentare durchsuchen…",
+    minChars: "Bitte mindestens 2 Zeichen eingeben.",
+    emptyResults: "Keine Treffer.",
+    bootstrapBanner: "Suchindex wird initialisiert, einen Moment…",
+    errorBanner: "Suche ist derzeit nicht verfügbar. Bitte später erneut versuchen.",
+    sectionCompanies: "Firmen",
+    sectionContacts: "Kontakte",
+    sectionTags: "Tags",
+    sectionComments: "Kommentare",
+    showAll: "Alle anzeigen",
   },
   companies: {
     title: "Firmen",

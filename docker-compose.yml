@@ -13,6 +13,20 @@ services:
       timeout: 5s
       retries: 5
 
+  meilisearch:
+    image: getmeili/meilisearch:v1.10
+    environment:
+      MEILI_MASTER_KEY: ${MEILI_MASTER_KEY}
+      MEILI_ENV: ${MEILI_ENV:-production}
+      MEILI_NO_ANALYTICS: "true"
+    volumes:
+      - meili-data:/meili_data
+    healthcheck:
+      test: [ "CMD", "wget", "--spider", "-q", "http://localhost:7700/health" ]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
   backend:
     build: ./backend
     environment:
@@ -23,8 +37,14 @@ services:
       TRANSLATION_API_URL: ${TRANSLATION_API_URL:-}
       TRANSLATION_API_KEY: ${TRANSLATION_API_KEY:-}
       TRANSLATION_MODEL: ${TRANSLATION_MODEL:-}
+      MEILI_HOST: http://meilisearch:7700
+      MEILI_MASTER_KEY: ${MEILI_MASTER_KEY}
+      MEILI_INDEX_PREFIX: ${MEILI_INDEX_PREFIX:-crm_}
     depends_on:
-      - db
+      db:
+        condition: service_healthy
+      meilisearch:
+        condition: service_healthy
 
   frontend:
     build: ./frontend
@@ -60,3 +80,4 @@ services:
 
 volumes:
   db-data:
+  meili-data:

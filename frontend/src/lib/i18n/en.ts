@@ -28,6 +28,7 @@ export const en: Translations = {
   },
   nav: {
     updates: "Updates",
+    search: "Search",
     companies: "Companies",
     contacts: "Contacts",
     tags: "Tags",
@@ -57,6 +58,19 @@ export const en: Translations = {
     title: "System Status",
     statusUp: "Backend is running",
     statusDown: "Backend is unavailable",
+  },
+  search: {
+    title: "Search",
+    inputPlaceholder: "Search across companies, contacts, tags, and comments…",
+    minChars: "Type at least 2 characters to search.",
+    emptyResults: "No results found.",
+    bootstrapBanner: "Search index is initializing, one moment…",
+    errorBanner: "Search is currently unavailable. Please try again later.",
+    sectionCompanies: "Companies",
+    sectionContacts: "Contacts",
+    sectionTags: "Tags",
+    sectionComments: "Comments",
+    showAll: "Show all",
   },
   companies: {
     title: "Companies",
