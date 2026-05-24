@@ -32,6 +32,28 @@ are part of the initial implementation — these integration tests go beyond tha
 **Context:** Identified during the grill session for Spec 075 (Webhook Support). Prerequisite: Spec 075 must be
 implemented first.
 
+## Meilisearch Docker-Healthcheck reaktivieren
+
+The `meilisearch` service in `docker-compose.yml` deliberately ships **without** a Docker healthcheck because the
+official meilisearch image (since v1.6+) strips `wget`, `curl`, and `nc` from the base — none of the usual HTTP
+healthcheck patterns can run inside the container. Configuring one anyway breaks any dependent service that uses
+`condition: service_healthy` (Coolify deploys fail with "container meilisearch is unhealthy"). The backend works
+around this with `condition: service_started` and an in-process connect-retry loop (60 s budget) at bootstrap.
+
+This TODO re-evaluates the situation periodically:
+
+- If upstream re-introduces a probe utility (`meilisearch healthcheck` subcommand, or wget/curl back in the
+  image), switch back to a real Docker healthcheck and flip the backend's `depends_on` to `service_healthy`.
+- Alternatively, build a thin custom Docker image (`FROM getmeili/meilisearch:vX.Y` + `apt-get install -y wget`)
+  and use that — pay a few MB image size and a base-image maintenance burden for a proper healthcheck.
+
+Re-evaluation cadence: each time meilisearch is upgraded.
+
+**Context:** Surfaced by the first production deploy of spec 104. See `meilisearch.md` § 1 and
+`specs/104-meilisearch-global-search/design.md` § 1 for the architectural reasoning.
+
+**Prerequisite:** Spec 104 (Meilisearch global search) must be merged.
+
 ## Cmd-K-Shortcut für globale Suche
 
 Add a `Cmd+K` / `Ctrl+K` keyboard shortcut that opens the global search from anywhere in the app — either as
@@ -140,25 +162,31 @@ the first user hits a 415.
 
 **Prerequisite:** Spec 102 (HEIC & WebP image format support) must be merged.
 
-## HEIC- und WebP-Testfixtures bereitstellen + Tests aktivieren
+## HEIC- und WebP-Edge-Case-Testfixtures bereitstellen + verbleibende Tests aktivieren
 
-Provide real-world binary test fixtures for the HEIC/WebP image upload tests added in spec 102, then remove the
-`@Disabled` annotations on those tests. Required artifacts under `backend/src/test/resources/contact-photo/`:
+Happy-path fixtures for all four formats are already in place under `backend/src/test/resources/images/`
+(`test.jpeg`, `test.png`, `test.webp`, `test.heic`) — they unblock the basic decode/transcode tests in spec 102.
+Several edge-case scenarios still ship `@Disabled` because they need specific variants:
 
-- A tiny opaque HEIC sample (a few KB, ideally a real iPhone HEIC, not a renamed JPEG).
-- `heic-probe/sample.heic` — a deliberately tiny HEIC (< 1 KB) bundled into the production JAR for the startup
-  `HeicSupportCheck` probe (see TODO entry "HEIC & WebP → JPEG Conversion in Java" below, section 2.).
-- A small WebP (lossy, opaque).
-- A small WebP (lossless, with alpha channel) to exercise the white-background flatten path.
-- Oversized fixtures (> 2 MB) of each type to exercise the size-cap rejection — can be produced by upscaling
-  the small fixtures.
+- **Rotated HEIC** (EXIF orientation 6 — 90° CW) — exercises the upright-rotation path.
+- **PNG with alpha** — exercises spec 101's flatten-on-white path (the existing `test.png` is opaque RGB).
+- **Lossless WebP with alpha** — same flatten-on-white path on the WebP code path.
+- **Animated WebP** — exercises "silent first frame only" behavior.
+- **Oversize fixtures > 2 MB per format** — exercises the size-cap rejection. The four existing fixtures are
+  all under 2 MB.
+- **Probe sample `heic-probe/sample.heic`** (< 10 KB target) — bundled into the production JAR for the
+  `HeicSupportCheck` startup probe. The existing 1 MB `test.heic` is too large to ship inside the production
+  artifact.
 
-Generation tools: `heif-enc` (libheif), `cwebp` (Google libwebp).
+When fixtures land, remove the corresponding `@Disabled` annotations.
 
-**Context:** Deferred from spec 102 (HEIC & WebP image format support). The spec ships with the test code in
-place but `@Disabled` — the binary fixtures are produced separately so the implementation can land without being
-blocked on artifact production. Implementation correctness is verified manually during spec 102; the disabled
-tests become the safety net once fixtures are provided.
+Generation tools: `heif-enc` (libheif) for rotated/tiny HEIC, `cwebp -alpha_q` / animated `webpmux` for WebP
+variants, ImageMagick `convert -alpha set` for alpha PNG, `dd if=/dev/urandom bs=1M count=3 > oversize.*` for
+size-cap fixtures.
+
+**Context:** Deferred from spec 102 (HEIC & WebP image format support). The four happy-path fixtures cover the
+v1 decode contract; this entry tracks the remaining edge-case fixtures so the disabled scenarios become active
+once produced.
 
 **Prerequisite:** Spec 102 (HEIC & WebP image format support) must be merged.
 
