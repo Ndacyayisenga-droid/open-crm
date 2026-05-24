@@ -264,36 +264,47 @@ No migration. The `photo` (`BYTEA`) and `photo_content_type` (`VARCHAR(50)`) col
 
 ### 7. Tests
 
-Backend (`backend/src/test/.../contact/`):
+**Fixture inventory.** The user has placed real-world fixtures under `backend/src/test/resources/images/`:
+
+| File | Bytes | Properties |
+|---|---|---|
+| `images/test.jpeg` | 1.4 MB | iPhone 15 Pro JPEG with EXIF (orientation 1, GPS data) |
+| `images/test.png` | 870 KB | 800×800 RGB, opaque (no alpha channel) |
+| `images/test.webp` | 565 KB | VP8 lossy, 3840×5783, opaque |
+| `images/test.heic` | 1.0 MB | iPhone HEIF/HEVC, opaque |
+
+Each is under 2 MB so each is **accepted** by the size cap and exercises the full decode → transcode → store path.
+
+Several edge-case fixtures are **not yet present** and are tracked in `TODO.md` ("HEIC- und WebP-Testfixtures bereitstellen + Tests aktivieren"). Tests that require them ship `@Disabled` with the message `"Awaiting fixture — see TODO.md: HEIC- und WebP-Testfixtures bereitstellen"`. Missing fixtures:
+
+- **EXIF-orientation HEIC** (e.g. `iphone-portrait-orient-6.heic`) — for the "decoded upright" test.
+- **Transparent PNG / lossless WebP + alpha** — for the "flatten on white" tests.
+- **Animated WebP** — for the "silent first frame" test.
+- **Oversized fixtures (> 2 MB) per format** — for the size-cap test. The existing four fixtures are all under 2 MB so a separate `oversize.heic` / `oversize.webp` / `oversize.png` is required.
+- **Probe sample `heic-probe/sample.heic`** (< 10 KB target) — bundled into the production JAR for `HeicSupportCheck`. The existing 1 MB `test.heic` is too large to ship inside the production artifact.
+
+**Malformed fixtures** are generated programmatically at test time (random byte arrays with the matching `Content-Type`); no disk asset needed.
+
+**Test matrix:**
 
 | Scenario | Active in CI? |
 |---|---|
-| Existing JPEG / PNG cases from spec 101 | Active |
-| Happy-path opaque HEIC upload | `@Disabled` (awaits fixture) |
-| HEIC with EXIF orientation 6 (90° CW) is decoded upright | `@Disabled` |
-| HEIC > 2 MB → 400 | `@Disabled` |
-| Malformed HEIC bytes → 400 | `@Disabled` |
-| Happy-path lossy opaque WebP upload | `@Disabled` |
-| Lossless WebP + alpha → flattened on white | `@Disabled` |
-| Animated WebP → first frame stored, no error | `@Disabled` |
-| WebP > 2 MB → 400 | `@Disabled` |
-| Malformed WebP bytes → 400 | `@Disabled` |
-| `HeicSupportCheck` reports `heicAvailable = true` after startup probe | `@Disabled` (needs `/heic-probe/sample.heic`) |
-| HEIC upload when `heicAvailable = false` → 415 | Active (uses a mock `HeicSupportCheck`, no fixture needed) |
+| Existing JPEG / PNG cases from spec 101, using `images/test.jpeg` and `images/test.png` | Active |
+| JPEG passthrough preserves EXIF including GPS (uses `images/test.jpeg`) | Active (spec 101 contract; verified here as a regression) |
+| Happy-path opaque HEIC upload (uses `images/test.heic`) | Active |
+| Happy-path lossy opaque WebP upload (uses `images/test.webp`) | Active |
+| HEIC upload when `heicAvailable = false` → 415 (uses a mock `HeicSupportCheck`) | Active |
 | Rejected MIME types (`image/gif`, `image/bmp`, `image/svg+xml`, `image/avif`, `application/pdf`) → 400 | Active |
-
-All `@Disabled` annotations carry the message `"Awaiting test fixtures — see TODO.md: HEIC- und WebP-Testfixtures bereitstellen"` so the trail is unambiguous when a developer or reviewer trips over them.
-
-Fixture files (when produced): tiny binaries (< 2 KB each) under `backend/src/test/resources/contact-photo/`:
-
-- `iphone-portrait-orient-6.heic` — real iPhone HEIC with non-trivial EXIF orientation
-- `opaque.heic` — simplest HEIC
-- `lossy-opaque.webp`
-- `lossless-alpha.webp`
-- `animated.webp`
-- `oversize.heic` / `oversize.webp` — > 2 MB
-- `malformed.heic` / `malformed.webp` — random bytes with the matching content-type header
-- `heic-probe/sample.heic` — also shipped under `backend/src/main/resources/` for the startup probe
+| Malformed HEIC bytes → 400 (programmatic random bytes) | Active |
+| Malformed WebP bytes → 400 (programmatic random bytes) | Active |
+| HEIC with EXIF orientation 6 (90° CW) is decoded upright | `@Disabled` (awaits fixture) |
+| HEIC > 2 MB → 400 | `@Disabled` (awaits fixture) |
+| WebP > 2 MB → 400 | `@Disabled` (awaits fixture) |
+| PNG > 2 MB → 400 (also spec 101) | `@Disabled` (awaits fixture) |
+| Lossless WebP + alpha → flattened on white | `@Disabled` (awaits fixture) |
+| Transparent PNG → flattened on white (also spec 101) | `@Disabled` (awaits fixture) |
+| Animated WebP → first frame stored, no error | `@Disabled` (awaits fixture) |
+| `HeicSupportCheck` reports `heicAvailable = true` after startup probe | `@Disabled` (awaits small probe sample) |
 
 Frontend (`frontend/src/components/__tests__/`):
 

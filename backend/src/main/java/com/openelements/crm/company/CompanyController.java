@@ -194,7 +194,7 @@ public class CompanyController {
     @ApiResponse(responseCode = "400", description = "Invalid file format or size")
     @ApiResponse(responseCode = "404", description = "Company not found")
     public void uploadLogo(@Parameter(description = "The company ID") @PathVariable final UUID id,
-                           @Parameter(description = "The logo image file (JPEG, PNG, or SVG; max 2 MB)") @RequestParam("file") final MultipartFile file) {
+                           @Parameter(description = "The logo image file") @RequestParam("file") final MultipartFile file) {
         try {
             companyService.updateLogo(id, ImageData.of(file));
         } catch (final java.io.IOException e) {

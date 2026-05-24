@@ -2,24 +2,31 @@
 
 This document inherits all scenarios from spec 101's `behaviors.md` (JPEG and PNG paths). The scenarios below add HEIC and WebP coverage, plus regressions to ensure the existing paths remain green.
 
-Scenarios marked **[fixture-disabled]** are implemented as `@Disabled` tests in v1, waiting on the fixture-provision TODO (`TODO.md`: "HEIC- und WebP-Testfixtures bereitstellen + Tests aktivieren"). They become active once the binary fixtures land.
+**Test fixtures.** Four happy-path fixtures live under `backend/src/test/resources/images/`:
+
+- `images/test.jpeg` — iPhone 15 Pro JPEG with EXIF/GPS, orientation 1
+- `images/test.png` — 800×800 RGB, opaque
+- `images/test.webp` — VP8 lossy, opaque
+- `images/test.heic` — iPhone HEIF/HEVC, opaque
+
+Scenarios marked **[fixture-disabled]** are implemented as `@Disabled` tests in v1 because they need fixture variants not yet on disk (rotated HEIC, alpha images, animated WebP, oversize, probe sample). They become active once those fixtures land (tracked in `TODO.md`: "HEIC- und WebP-Testfixtures bereitstellen + Tests aktivieren").
 
 ## Backend — HEIC upload (new path)
 
-### Opaque HEIC upload is transcoded to JPEG  [fixture-disabled]
+### Opaque HEIC upload is transcoded to JPEG
 
 - **Given** an authenticated user and an existing contact
 - **And** `HeicSupportCheck.isHeicAvailable() == true`
-- **And** an opaque HEIC file ≤ 2 MB (no alpha, no animation)
+- **And** the fixture `images/test.heic` (≤ 2 MB, opaque iPhone HEIC)
 - **When** the client posts to `POST /api/contacts/{id}/photo` with `Content-Type: image/heic`
 - **Then** the response is `200 OK`
 - **And** the contact's `photo_content_type` is `image/jpeg` (not `image/heic`)
 - **And** the stored bytes are valid JPEG and decode to a `BufferedImage` of the original HEIC's dimensions
 - **And** the stored bytes are NOT byte-equal to the uploaded HEIC
 
-### `image/heif` content type is accepted equivalently  [fixture-disabled]
+### `image/heif` content type is accepted equivalently
 
-- **Given** an HEIC file uploaded with `Content-Type: image/heif` (the parent-format MIME type some clients use)
+- **Given** the fixture `images/test.heic` uploaded with `Content-Type: image/heif` (the parent-format MIME type some clients use)
 - **When** the client posts it (size ≤ 2 MB, `heicAvailable == true`)
 - **Then** the response is `200 OK`
 - **And** the stored bytes are a valid JPEG
@@ -40,13 +47,15 @@ Scenarios marked **[fixture-disabled]** are implemented as `@Disabled` tests in 
 - **And** the `HeicTranscoderService` was never invoked (verifiable via mock assertions in unit tests)
 - **And** the contact's `photo` column is not modified
 
-### Malformed HEIC is rejected with 400  [fixture-disabled]
+### Malformed HEIC is rejected with 400
 
-- **Given** an upload with `Content-Type: image/heic` whose bytes are not a valid HEIC (random bytes, truncated, or another format mislabelled), size ≤ 2 MB, `heicAvailable == true`
+- **Given** an upload with `Content-Type: image/heic` whose bytes are a programmatically-generated random `byte[]` of length ≤ 2 MB, `heicAvailable == true`
 - **When** the client posts it
 - **Then** the response is `400 BAD REQUEST`
 - **And** the response body contains a recognizable "could not decode HEIC" message
 - **And** the contact's `photo` column is not modified
+
+Note: this scenario uses an in-test-generated random byte array, not a disk fixture — no `@Disabled` needed.
 
 ### HEIC upload returns 415 when libheif is unavailable
 
@@ -60,10 +69,10 @@ Scenarios marked **[fixture-disabled]** are implemented as `@Disabled` tests in 
 
 ## Backend — WebP upload (new path)
 
-### Opaque lossy WebP upload is transcoded to JPEG  [fixture-disabled]
+### Opaque lossy WebP upload is transcoded to JPEG
 
 - **Given** an authenticated user and an existing contact
-- **And** a lossy opaque WebP file ≤ 2 MB
+- **And** the fixture `images/test.webp` (VP8 lossy, opaque, ≤ 2 MB)
 - **When** the client posts to `POST /api/contacts/{id}/photo` with `Content-Type: image/webp`
 - **Then** the response is `200 OK`
 - **And** the contact's `photo_content_type` is `image/jpeg`
@@ -98,13 +107,15 @@ Scenarios marked **[fixture-disabled]** are implemented as `@Disabled` tests in 
 - **And** no transcoder invocation occurred
 - **And** the contact's `photo` column is not modified
 
-### Malformed WebP is rejected with 400  [fixture-disabled]
+### Malformed WebP is rejected with 400
 
-- **Given** an upload with `Content-Type: image/webp` whose bytes are not a valid WebP, size ≤ 2 MB
+- **Given** an upload with `Content-Type: image/webp` whose bytes are a programmatically-generated random `byte[]` of length ≤ 2 MB
 - **When** the client posts it
 - **Then** the response is `400 BAD REQUEST`
 - **And** the response body contains a recognizable "could not decode WebP" message
 - **And** the contact's `photo` column is not modified
+
+Note: this scenario uses an in-test-generated random byte array, not a disk fixture — no `@Disabled` needed.
 
 ## Backend — startup probe
 
