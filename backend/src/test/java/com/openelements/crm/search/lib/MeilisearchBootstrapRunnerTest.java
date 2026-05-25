@@ -7,6 +7,7 @@ import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -77,7 +78,7 @@ class MeilisearchBootstrapRunnerTest {
         runner.executeAllSteps();
 
         final ArgumentCaptor<List<Map<String, Object>>> captor = listCaptor();
-        verify(client, org.mockito.Mockito.times(3)).addDocuments(eq("crm_companies"), captor.capture());
+        verify(client, times(3)).addDocuments(eq("crm_companies"), captor.capture());
         assertEquals(List.of(500, 500, 500),
             captor.getAllValues().stream().map(List::size).toList());
     }
@@ -89,7 +90,7 @@ class MeilisearchBootstrapRunnerTest {
         runner.executeAllSteps();
 
         final ArgumentCaptor<List<Map<String, Object>>> captor = listCaptor();
-        verify(client, org.mockito.Mockito.times(2)).addDocuments(eq("crm_companies"), captor.capture());
+        verify(client, times(2)).addDocuments(eq("crm_companies"), captor.capture());
         assertEquals(List.of(500, 250),
             captor.getAllValues().stream().map(List::size).toList());
     }
@@ -128,7 +129,7 @@ class MeilisearchBootstrapRunnerTest {
         runner.executeAllSteps();
 
         final ArgumentCaptor<String> uids = ArgumentCaptor.forClass(String.class);
-        verify(client, org.mockito.Mockito.times(3)).addDocuments(uids.capture(), any());
+        verify(client, times(3)).addDocuments(uids.capture(), any());
         assertEquals(List.of("crm_companies", "crm_tags", "crm_comments"), uids.getAllValues());
         assertFalse(state.isBootstrapping(), "readiness must flip even with a failed step");
     }

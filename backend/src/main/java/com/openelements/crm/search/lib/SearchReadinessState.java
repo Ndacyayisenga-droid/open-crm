@@ -13,14 +13,17 @@ public class SearchReadinessState {
 
     private final AtomicBoolean bootstrapping = new AtomicBoolean(true);
 
+    /** Returns {@code true} while the initial reindex is still running. */
     public boolean isBootstrapping() {
         return bootstrapping.get();
     }
 
+    /** Marks the initial reindex as started (readiness flips to "not ready"). */
     public void markBootstrappingStarted() {
         bootstrapping.set(true);
     }
 
+    /** Marks the initial reindex as finished (readiness flips to "ready"). */
     public void markBootstrappingFinished() {
         bootstrapping.set(false);
     }
