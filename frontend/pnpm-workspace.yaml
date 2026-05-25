@@ -3,3 +3,5 @@ allowBuilds:
   unrs-resolver: false
 minimumReleaseAgeExclude:
   - '@open-elements/nextjs-app-layer@0.4.0'
+  - '@open-elements/nextjs-app-layer@0.5.0'
+  - '@open-elements/ui@0.8.0'
