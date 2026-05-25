@@ -115,22 +115,25 @@ class AuditLogControllerTest extends AbstractDbTest {
 
     @Test
     void listAuditLogsFiltersByEntityType() throws Exception {
-        auditLogDataService.createEntry("CompanyDto", UUID.randomUUID(), AuditAction.INSERT, alice);
-        auditLogDataService.createEntry("ContactDto", UUID.randomUUID(), AuditAction.INSERT, alice);
-        auditLogDataService.createEntry("CompanyDto", UUID.randomUUID(), AuditAction.UPDATE, bob);
+        auditLogDataService.createEntry("CompanyDto", UUID.randomUUID(), "Test Name", AuditAction.INSERT, alice);
+        auditLogDataService.createEntry("ContactDto", UUID.randomUUID(), "Test Name", AuditAction.INSERT, alice);
+        auditLogDataService.createEntry("CompanyDto", UUID.randomUUID(), "Test Name", AuditAction.UPDATE, bob);
 
         mockMvc.perform(asItAdmin(get("/api/audit-logs").param("entityType", "CompanyDto")))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.page.totalElements").value(2))
             .andExpect(jsonPath("$.content[0].entityType").value("CompanyDto"))
-            .andExpect(jsonPath("$.content[1].entityType").value("CompanyDto"));
+            .andExpect(jsonPath("$.content[1].entityType").value("CompanyDto"))
+            // spring-services 0.16 adds the `name` field between entityId and action.
+            .andExpect(jsonPath("$.content[0].name").value("Test Name"))
+            .andExpect(jsonPath("$.content[1].name").value("Test Name"));
     }
 
     @Test
     void listAuditLogsFiltersByUser() throws Exception {
-        auditLogDataService.createEntry("CompanyDto", UUID.randomUUID(), AuditAction.INSERT, alice);
-        auditLogDataService.createEntry("ContactDto", UUID.randomUUID(), AuditAction.INSERT, alice);
-        auditLogDataService.createEntry("CompanyDto", UUID.randomUUID(), AuditAction.UPDATE, bob);
+        auditLogDataService.createEntry("CompanyDto", UUID.randomUUID(), "Test Name", AuditAction.INSERT, alice);
+        auditLogDataService.createEntry("ContactDto", UUID.randomUUID(), "Test Name", AuditAction.INSERT, alice);
+        auditLogDataService.createEntry("CompanyDto", UUID.randomUUID(), "Test Name", AuditAction.UPDATE, bob);
 
         mockMvc.perform(asItAdmin(get("/api/audit-logs").param("user", alice.id().toString())))
             .andExpect(status().isOk())
@@ -141,9 +144,9 @@ class AuditLogControllerTest extends AbstractDbTest {
 
     @Test
     void listAuditLogsFiltersByEntityTypeAndUser() throws Exception {
-        auditLogDataService.createEntry("CompanyDto", UUID.randomUUID(), AuditAction.INSERT, alice);
-        auditLogDataService.createEntry("ContactDto", UUID.randomUUID(), AuditAction.INSERT, alice);
-        auditLogDataService.createEntry("CompanyDto", UUID.randomUUID(), AuditAction.UPDATE, bob);
+        auditLogDataService.createEntry("CompanyDto", UUID.randomUUID(), "Test Name", AuditAction.INSERT, alice);
+        auditLogDataService.createEntry("ContactDto", UUID.randomUUID(), "Test Name", AuditAction.INSERT, alice);
+        auditLogDataService.createEntry("CompanyDto", UUID.randomUUID(), "Test Name", AuditAction.UPDATE, bob);
 
         mockMvc.perform(asItAdmin(get("/api/audit-logs")
                 .param("entityType", "CompanyDto")
@@ -157,8 +160,8 @@ class AuditLogControllerTest extends AbstractDbTest {
 
     @Test
     void listAuditLogsFiltersByUserAssertsId() throws Exception {
-        auditLogDataService.createEntry("CompanyDto", UUID.randomUUID(), AuditAction.INSERT, alice);
-        auditLogDataService.createEntry("CompanyDto", UUID.randomUUID(), AuditAction.UPDATE, bob);
+        auditLogDataService.createEntry("CompanyDto", UUID.randomUUID(), "Test Name", AuditAction.INSERT, alice);
+        auditLogDataService.createEntry("CompanyDto", UUID.randomUUID(), "Test Name", AuditAction.UPDATE, bob);
 
         mockMvc.perform(asItAdmin(get("/api/audit-logs").param("user", alice.id().toString())))
             .andExpect(status().isOk())
@@ -174,7 +177,7 @@ class AuditLogControllerTest extends AbstractDbTest {
 
     @Test
     void listAuditLogsReturnsEmptyPageForUnknownUserUuid() throws Exception {
-        auditLogDataService.createEntry("CompanyDto", UUID.randomUUID(), AuditAction.INSERT, alice);
+        auditLogDataService.createEntry("CompanyDto", UUID.randomUUID(), "Test Name", AuditAction.INSERT, alice);
 
         mockMvc.perform(asItAdmin(get("/api/audit-logs").param("user", UUID.randomUUID().toString())))
             .andExpect(status().isOk())
@@ -185,12 +188,12 @@ class AuditLogControllerTest extends AbstractDbTest {
 
     @Test
     void listAuditLogsSortsByCreatedAtDescending() throws Exception {
-        auditLogDataService.createEntry("CompanyDto", UUID.randomUUID(), AuditAction.INSERT, alice);
+        auditLogDataService.createEntry("CompanyDto", UUID.randomUUID(), "Test Name", AuditAction.INSERT, alice);
         Thread.sleep(5L);
-        auditLogDataService.createEntry("CompanyDto", UUID.randomUUID(), AuditAction.UPDATE, bob);
+        auditLogDataService.createEntry("CompanyDto", UUID.randomUUID(), "Test Name", AuditAction.UPDATE, bob);
         Thread.sleep(5L);
         final UUID newestId = auditLogDataService
-            .createEntry("CompanyDto", UUID.randomUUID(), AuditAction.DELETE, charlie)
+            .createEntry("CompanyDto", UUID.randomUUID(), "Test Name", AuditAction.DELETE, charlie)
             .id();
 
         mockMvc.perform(asItAdmin(get("/api/audit-logs")))
@@ -200,9 +203,9 @@ class AuditLogControllerTest extends AbstractDbTest {
 
     @Test
     void entityTypesReturnsDistinctSortedValues() throws Exception {
-        auditLogDataService.createEntry("ContactDto", UUID.randomUUID(), AuditAction.INSERT, alice);
-        auditLogDataService.createEntry("CompanyDto", UUID.randomUUID(), AuditAction.INSERT, alice);
-        auditLogDataService.createEntry("ContactDto", UUID.randomUUID(), AuditAction.UPDATE, bob);
+        auditLogDataService.createEntry("ContactDto", UUID.randomUUID(), "Test Name", AuditAction.INSERT, alice);
+        auditLogDataService.createEntry("CompanyDto", UUID.randomUUID(), "Test Name", AuditAction.INSERT, alice);
+        auditLogDataService.createEntry("ContactDto", UUID.randomUUID(), "Test Name", AuditAction.UPDATE, bob);
 
         mockMvc.perform(asItAdmin(get("/api/audit-logs/entity-types")))
             .andExpect(status().isOk())

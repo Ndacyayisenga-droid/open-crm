@@ -1,5 +1,6 @@
 package com.openelements.crm.company;
 
+import com.openelements.spring.base.data.NameSupplier;
 import com.openelements.spring.base.data.WithId;
 import io.swagger.v3.oas.annotations.media.Schema;
 
@@ -33,4 +34,14 @@ public record CompanyDto(
     @Schema(description = "Last update timestamp", requiredMode = Schema.RequiredMode.REQUIRED) Instant updatedAt
 ) implements WithId {
 
+    /**
+     * Display name used by the spring-services audit log ({@code @NameSupplier}).
+     * Returns the company name, or an empty string if absent.
+     *
+     * @return the audit-log display name
+     */
+    @NameSupplier
+    public String displayName() {
+        return name == null ? "" : name;
+    }
 }

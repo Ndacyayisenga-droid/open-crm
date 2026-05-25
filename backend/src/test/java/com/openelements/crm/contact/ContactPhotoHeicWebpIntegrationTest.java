@@ -35,7 +35,7 @@ import org.springframework.test.web.servlet.request.MockMultipartHttpServletRequ
  * fixture-provision TODO.
  *
  * <p>Active in this v1: the HEIC-unavailable → 415 path (the test environment
- * has no probe sample on classpath, so {@code HeicSupportCheck.isHeicAvailable()}
+ * has no probe sample on classpath, so {@code CrmHeicSupportCheck.isHeicAvailable()}
  * naturally returns false) and the malformed-WebP rejection path.
  */
 class ContactPhotoHeicWebpIntegrationTest extends AbstractDbTest {
@@ -53,7 +53,10 @@ class ContactPhotoHeicWebpIntegrationTest extends AbstractDbTest {
     private UserRepository userRepository;
 
     @Autowired
-    private HeicSupportCheck heicSupportCheck;
+    private CrmHeicSupportCheck crmHeicSupportCheck;
+
+    @Autowired
+    private ContactService contactService;
 
     @Autowired
     private org.springframework.jdbc.core.JdbcTemplate jdbcTemplate;
@@ -97,11 +100,11 @@ class ContactPhotoHeicWebpIntegrationTest extends AbstractDbTest {
     @Test
     void heicUploadReturns415WhenLibheifIsUnavailable() throws Exception {
         // The test environment ships no /heic-probe/sample.heic on the classpath,
-        // so HeicSupportCheck leaves heicAvailable = false. Assert that
+        // so CrmHeicSupportCheck leaves heicAvailable = false. Assert that
         // precondition explicitly — if a future change provides the probe
         // sample, this test would silently flip to validating the wrong path
         // without this guard.
-        assertFalse(heicSupportCheck.isHeicAvailable(),
+        assertFalse(crmHeicSupportCheck.isHeicAvailable(),
             "Test depends on heicAvailable=false; remove the probe sample or mock the bean");
 
         final ContactEntity contact = newContact();
@@ -118,7 +121,7 @@ class ContactPhotoHeicWebpIntegrationTest extends AbstractDbTest {
 
     @Test
     void heifContentTypeAlsoReturns415WhenLibheifIsUnavailable() throws Exception {
-        assertFalse(heicSupportCheck.isHeicAvailable());
+        assertFalse(crmHeicSupportCheck.isHeicAvailable());
 
         final ContactEntity contact = newContact();
         final MockMultipartFile file = new MockMultipartFile("file", "p.heif", "image/heif",
@@ -147,14 +150,14 @@ class ContactPhotoHeicWebpIntegrationTest extends AbstractDbTest {
     @Test
     void oversizedWebpIsRejectedBeforeDecode() throws Exception {
         final ContactEntity contact = newContact();
-        // 3 MB of zeros under image/webp — the size guard fires before the
+        // 21 MB of zeros under image/webp — the size guard fires before the
         // transcoder is invoked, so the reader is never consulted.
-        final byte[] big = new byte[3 * 1024 * 1024];
+        final byte[] big = new byte[21 * 1024 * 1024];
         final MockMultipartFile file = new MockMultipartFile("file", "big.webp", "image/webp", big);
 
         mockMvc.perform(asUser(upload(contact).file(file)))
             .andExpect(status().isBadRequest())
-            .andExpect(status().reason(org.hamcrest.Matchers.containsString("2 MB")));
+            .andExpect(status().reason(org.hamcrest.Matchers.containsString("20 MB")));
         assertNull(contactRepository.findByIdOrThrow(contact.getId()).getPhoto());
     }
 
@@ -163,13 +166,29 @@ class ContactPhotoHeicWebpIntegrationTest extends AbstractDbTest {
         final ContactEntity contact = newContact();
         // Size cap fires before the heicAvailable check — verifies the order
         // of validation in ContactService.uploadPhoto.
-        final byte[] big = new byte[3 * 1024 * 1024];
+        final byte[] big = new byte[21 * 1024 * 1024];
         final MockMultipartFile file = new MockMultipartFile("file", "big.heic", "image/heic", big);
 
         mockMvc.perform(asUser(upload(contact).file(file)))
             .andExpect(status().isBadRequest())
-            .andExpect(status().reason(org.hamcrest.Matchers.containsString("2 MB")));
+            .andExpect(status().reason(org.hamcrest.Matchers.containsString("20 MB")));
         assertNull(contactRepository.findByIdOrThrow(contact.getId()).getPhoto());
+    }
+
+    @Test
+    void uploadPhotoRejectsOver20MbAtServiceBoundaryWith400() {
+        // The library's ImageData.of signals oversize with IllegalArgumentException;
+        // ContactService keeps an explicit guard so the service boundary raises a
+        // 400 ResponseStatusException with a "20 MB" message (not a 500).
+        final byte[] big = new byte[21 * 1024 * 1024];
+        final org.springframework.web.server.ResponseStatusException ex =
+            org.junit.jupiter.api.Assertions.assertThrows(
+                org.springframework.web.server.ResponseStatusException.class,
+                () -> contactService.uploadPhoto(java.util.UUID.randomUUID(), big, "image/jpeg"));
+        org.junit.jupiter.api.Assertions.assertEquals(
+            org.springframework.http.HttpStatus.BAD_REQUEST, ex.getStatusCode());
+        org.junit.jupiter.api.Assertions.assertTrue(ex.getReason() != null && ex.getReason().contains("20 MB"),
+            "message must mention the 20 MB cap");
     }
 
     // -- @Disabled: scenarios that need binary fixtures --

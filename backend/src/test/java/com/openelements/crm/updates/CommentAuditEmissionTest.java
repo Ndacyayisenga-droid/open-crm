@@ -115,6 +115,9 @@ class CommentAuditEmissionTest extends AbstractDbTest {
         final List<AuditLogDto> entries = auditsFor("CompanyComment", company.getId());
         assertEquals(1, entries.size());
         assertEquals(AuditAction.INSERT, entries.get(0).action());
+        // spring-services 0.16: AuditLogEntity.name is NOT NULL; recordCommentAudit
+        // sets it to the owning company's name.
+        assertEquals("Acme", entries.get(0).name());
     }
 
     @Test
@@ -173,6 +176,8 @@ class CommentAuditEmissionTest extends AbstractDbTest {
         final List<AuditLogDto> entries = auditsFor("ContactComment", contact.getId());
         assertEquals(1, entries.size());
         assertEquals(AuditAction.INSERT, entries.get(0).action());
+        // spring-services 0.16: recordCommentAudit sets name to the contact's display name.
+        assertEquals("Jane Doe", entries.get(0).name());
     }
 
     @Test

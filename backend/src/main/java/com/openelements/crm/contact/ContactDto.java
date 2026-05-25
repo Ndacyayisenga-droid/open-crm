@@ -1,5 +1,6 @@
 package com.openelements.crm.contact;
 
+import com.openelements.spring.base.data.NameSupplier;
 import com.openelements.spring.base.data.WithId;
 import io.swagger.v3.oas.annotations.media.Schema;
 
@@ -33,4 +34,17 @@ public record ContactDto(
     @Schema(description = "Last update timestamp", requiredMode = Schema.RequiredMode.REQUIRED) Instant updatedAt
 ) implements WithId {
 
+    /**
+     * Display name used by the spring-services audit log ({@code @NameSupplier}).
+     * Returns {@code "firstName lastName"} (trimmed); the title is intentionally
+     * not included.
+     *
+     * @return the audit-log display name
+     */
+    @NameSupplier
+    public String displayName() {
+        final String f = firstName == null ? "" : firstName;
+        final String l = lastName == null ? "" : lastName;
+        return (f + " " + l).trim();
+    }
 }

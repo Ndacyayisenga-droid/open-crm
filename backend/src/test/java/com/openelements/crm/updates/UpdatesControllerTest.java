@@ -135,7 +135,7 @@ class UpdatesControllerTest extends AbstractDbTest {
     @Test
     void pageGreaterThanZeroReturnsEmptyContent() throws Exception {
         final CompanyEntity company = newCompany("Acme");
-        auditLogDataService.createEntry("CompanyDto", company.getId(), AuditAction.INSERT, alice);
+        auditLogDataService.createEntry("CompanyDto", company.getId(), "Test Name", AuditAction.INSERT, alice);
 
         mockMvc.perform(asUser(get("/api/updates").param("size", "20").param("page", "2"), List.of()))
             .andExpect(status().isOk())
@@ -158,8 +158,8 @@ class UpdatesControllerTest extends AbstractDbTest {
     void contentReflectsTotalElements() throws Exception {
         final CompanyEntity c1 = newCompany("Acme");
         final CompanyEntity c2 = newCompany("Globex");
-        auditLogDataService.createEntry("CompanyDto", c1.getId(), AuditAction.INSERT, alice);
-        auditLogDataService.createEntry("CompanyDto", c2.getId(), AuditAction.INSERT, alice);
+        auditLogDataService.createEntry("CompanyDto", c1.getId(), "Test Name", AuditAction.INSERT, alice);
+        auditLogDataService.createEntry("CompanyDto", c2.getId(), "Test Name", AuditAction.INSERT, alice);
 
         mockMvc.perform(asUser(get("/api/updates"), List.of()))
             .andExpect(status().isOk())
@@ -173,7 +173,7 @@ class UpdatesControllerTest extends AbstractDbTest {
         company.setLogo(new byte[]{1, 2, 3});
         company.setLogoContentType("image/png");
         companyRepository.saveAndFlush(company);
-        auditLogDataService.createEntry("CompanyDto", company.getId(), AuditAction.UPDATE, alice);
+        auditLogDataService.createEntry("CompanyDto", company.getId(), "Test Name", AuditAction.UPDATE, alice);
 
         mockMvc.perform(asUser(get("/api/updates"), List.of()))
             .andExpect(status().isOk())
@@ -183,7 +183,7 @@ class UpdatesControllerTest extends AbstractDbTest {
 
     @Test
     void deletedCompanyEntryExposesBothFlagsFalse() throws Exception {
-        auditLogDataService.createEntry("CompanyDto", java.util.UUID.randomUUID(), AuditAction.DELETE, alice);
+        auditLogDataService.createEntry("CompanyDto", java.util.UUID.randomUUID(), "Test Name", AuditAction.DELETE, alice);
 
         mockMvc.perform(asUser(get("/api/updates"), List.of()))
             .andExpect(status().isOk())
