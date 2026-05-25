@@ -1,3 +1,3 @@
 import { createLoginPage } from "@open-elements/nextjs-app-layer";
 
-export default createLoginPage({ homeRoute: "/updates" });
+export default createLoginPage({ appName: "Open CRM", homeRoute: "/updates" });
