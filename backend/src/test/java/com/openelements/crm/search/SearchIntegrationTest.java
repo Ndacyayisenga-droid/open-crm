@@ -11,6 +11,7 @@ import com.openelements.crm.company.CompanyDto;
 import com.openelements.crm.company.CompanyService;
 import com.openelements.crm.contact.ContactDto;
 import com.openelements.crm.contact.ContactService;
+import com.openelements.crm.search.lib.SearchReadinessState;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -44,7 +45,7 @@ class SearchIntegrationTest extends AbstractSearchTest {
     private ContactService contactService;
 
     @Autowired
-    private SearchIndexState state;
+    private SearchReadinessState state;
 
     @BeforeEach
     void prepare() throws Exception {

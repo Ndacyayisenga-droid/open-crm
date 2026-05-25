@@ -1,6 +1,9 @@
 package com.openelements.crm.search;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import com.openelements.crm.search.lib.Highlighter;
+import com.openelements.crm.search.lib.MeilisearchClient;
+import com.openelements.crm.search.lib.SearchReadinessState;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -23,9 +26,9 @@ import org.springframework.web.bind.annotation.RestController;
  * call to four CRM indexes (companies / contacts / tags / comments) and
  * returns the results grouped per section.
  *
- * <p>Until {@link SearchIndexBootstrap} reports finished, responds with
- * {@code 503 SERVICE_UNAVAILABLE} + {@code Retry-After: 30} so clients can
- * back off cleanly.
+ * <p>Until {@link com.openelements.crm.search.lib.MeilisearchBootstrapRunner}
+ * reports finished, responds with {@code 503 SERVICE_UNAVAILABLE} +
+ * {@code Retry-After: 30} so clients can back off cleanly.
  */
 @RestController
 @RequestMapping("/api/search")
@@ -38,25 +41,15 @@ public class SearchController {
     private static final int MAX_LIMIT = 20;
     private static final int RETRY_AFTER_SECONDS = 30;
 
-    // Private-use Unicode marks so we can detect Meilisearch's highlight
-    // boundary inside otherwise HTML-escaped text. Meilisearch returns the
-    // _formatted field as raw text with the configured pre/post tags around
-    // matched fragments — if we left those as "<em>" / "</em>" the field
-    // would mix unescaped HTML with user-typed text (XSS vector). Instead
-    // we configure Meilisearch to emit these markers, escape the whole
-    // string defensively, then replace the markers with literal <em> tags.
-    static final String PRE_MARK = "";
-    static final String POST_MARK = "";
-
     private final MeilisearchClient client;
-    private final MeilisearchProperties props;
-    private final SearchIndexState state;
+    private final CrmIndexNames indexNames;
+    private final SearchReadinessState state;
 
     public SearchController(final MeilisearchClient client,
-                            final MeilisearchProperties props,
-                            final SearchIndexState state) {
+                            final CrmIndexNames indexNames,
+                            final SearchReadinessState state) {
         this.client = client;
-        this.props = props;
+        this.indexNames = indexNames;
         this.state = state;
     }
 
@@ -87,22 +80,22 @@ public class SearchController {
         final int sectionLimit = limit <= 0 ? DEFAULT_LIMIT : Math.min(limit, MAX_LIMIT);
 
         final JsonNode response = client.multiSearch(Map.of("queries", List.of(
-            queryForIndex(props.companiesIndex(), query, sectionLimit,
+            queryForIndex(indexNames.companies(), query, sectionLimit,
                 List.of("name", "email", "address")),
-            queryForIndex(props.contactsIndex(), query, sectionLimit,
+            queryForIndex(indexNames.contacts(), query, sectionLimit,
                 List.of("firstName", "lastName", "email", "companyName")),
-            queryForIndex(props.tagsIndex(), query, sectionLimit,
+            queryForIndex(indexNames.tags(), query, sectionLimit,
                 List.of("name", "description")),
-            queryForIndex(props.commentsIndex(), query, sectionLimit,
+            queryForIndex(indexNames.comments(), query, sectionLimit,
                 List.of("text", "ownerLabel"))
         )));
 
         final GlobalSearchResultDto result = new GlobalSearchResultDto(
             query,
-            extractHits(response, props.companiesIndex(), this::companyHit),
-            extractHits(response, props.contactsIndex(), this::contactHit),
-            extractHits(response, props.tagsIndex(), this::tagHit),
-            extractHits(response, props.commentsIndex(), this::commentHit));
+            extractHits(response, indexNames.companies(), this::companyHit),
+            extractHits(response, indexNames.contacts(), this::contactHit),
+            extractHits(response, indexNames.tags(), this::tagHit),
+            extractHits(response, indexNames.comments(), this::commentHit));
         return ResponseEntity.ok(result);
     }
 
@@ -115,26 +108,8 @@ public class SearchController {
             "q", q,
             "limit", limit,
             "attributesToHighlight", highlightAttrs,
-            "highlightPreTag", PRE_MARK,
-            "highlightPostTag", POST_MARK);
-    }
-
-    /**
-     * Escapes HTML special characters in user-typed text, then turns the
-     * Meilisearch boundary markers back into {@code <em>} / {@code </em>}.
-     * The result is safe to render with {@code dangerouslySetInnerHTML}.
-     */
-    static String safeHighlight(final String raw) {
-        if (raw == null) {
-            return "";
-        }
-        final String escaped = raw
-            .replace("&", "&amp;")
-            .replace("<", "&lt;")
-            .replace(">", "&gt;")
-            .replace("\"", "&quot;")
-            .replace("'", "&#39;");
-        return escaped.replace(PRE_MARK, "<em>").replace(POST_MARK, "</em>");
+            "highlightPreTag", Highlighter.PRE_MARK,
+            "highlightPostTag", Highlighter.POST_MARK);
     }
 
     /**
@@ -179,7 +154,7 @@ public class SearchController {
             return null;
         }
         final String name = hit.path("name").asText("");
-        final String highlight = safeHighlight(hit.path("_formatted").path("name").asText(name));
+        final String highlight = Highlighter.safeHighlight(hit.path("_formatted").path("name").asText(name));
         final String snippet = hit.path("email").asText("");
         return new SearchHitDto(id, name, snippet, highlight, scoreOf(hit), null, null);
     }
@@ -193,8 +168,8 @@ public class SearchController {
         final String last = hit.path("lastName").asText("");
         final String label = (first + " " + last).trim();
         final JsonNode fmt = hit.path("_formatted");
-        final String highlightFirst = safeHighlight(fmt.path("firstName").asText(first));
-        final String highlightLast = safeHighlight(fmt.path("lastName").asText(last));
+        final String highlightFirst = Highlighter.safeHighlight(fmt.path("firstName").asText(first));
+        final String highlightLast = Highlighter.safeHighlight(fmt.path("lastName").asText(last));
         final String highlight = (highlightFirst + " " + highlightLast).trim();
         final String snippet = hit.path("email").asText("");
         return new SearchHitDto(id, label, snippet, highlight, scoreOf(hit), null, null);
@@ -206,7 +181,7 @@ public class SearchController {
             return null;
         }
         final String name = hit.path("name").asText("");
-        final String highlight = safeHighlight(hit.path("_formatted").path("name").asText(name));
+        final String highlight = Highlighter.safeHighlight(hit.path("_formatted").path("name").asText(name));
         final String snippet = hit.path("description").asText("");
         return new SearchHitDto(id, name, snippet, highlight, scoreOf(hit), null, null);
     }
@@ -217,7 +192,7 @@ public class SearchController {
             return null;
         }
         final String text = hit.path("text").asText("");
-        final String highlight = safeHighlight(hit.path("_formatted").path("text").asText(text));
+        final String highlight = Highlighter.safeHighlight(hit.path("_formatted").path("text").asText(text));
         final String ownerType = hit.path("ownerType").asText(null);
         final String ownerIdStr = hit.path("ownerId").asText(null);
         UUID ownerId = null;

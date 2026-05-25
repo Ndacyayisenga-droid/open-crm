@@ -1,6 +1,8 @@
 package com.openelements.crm.search;
 
 import com.openelements.crm.AbstractDbTest;
+import com.openelements.crm.search.lib.MeilisearchClient;
+import com.openelements.crm.search.lib.MeilisearchProperties;
 import java.time.Duration;
 import java.util.List;
 import org.junit.jupiter.api.AfterEach;
@@ -13,7 +15,7 @@ import org.testcontainers.containers.wait.strategy.Wait;
 /**
  * Integration test base for the search package. Adds a singleton Meilisearch
  * container on top of {@link AbstractDbTest}'s Postgres container. The
- * {@code @AfterEach} hook drops the four {@code crm_*} indexes so each test
+ * {@code @AfterEach} hook clears the four {@code crm_*} indexes so each test
  * starts from an empty Meilisearch state.
  *
  * <p>Tests can call {@link #waitForIndex()} to block until the latest
@@ -38,9 +40,9 @@ public abstract class AbstractSearchTest extends AbstractDbTest {
 
     @DynamicPropertySource
     static void registerMeilisearchProperties(final DynamicPropertyRegistry registry) {
-        registry.add("openelements.search.meilisearch.host",
+        registry.add("openelements.meilisearch.host",
             () -> "http://" + MEILI.getHost() + ":" + MEILI.getMappedPort(7700));
-        registry.add("openelements.search.meilisearch.master-key", () -> MEILI_MASTER_KEY);
+        registry.add("openelements.meilisearch.master-key", () -> MEILI_MASTER_KEY);
     }
 
     @Autowired
@@ -49,15 +51,18 @@ public abstract class AbstractSearchTest extends AbstractDbTest {
     @Autowired
     private MeilisearchProperties meilisearchProperties;
 
+    @Autowired
+    private CrmIndexNames crmIndexNames;
+
     @AfterEach
     void resetIndexes() {
         // Delete all documents from each index but keep the index itself —
         // dropping the index loses settings and would 400 on the next search.
         for (final String idx : List.of(
-            meilisearchProperties.companiesIndex(),
-            meilisearchProperties.contactsIndex(),
-            meilisearchProperties.tagsIndex(),
-            meilisearchProperties.commentsIndex())) {
+            crmIndexNames.companies(),
+            crmIndexNames.contacts(),
+            crmIndexNames.tags(),
+            crmIndexNames.comments())) {
             deleteAllDocuments(idx);
         }
     }

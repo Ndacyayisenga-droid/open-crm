@@ -1,15 +1,17 @@
-package com.openelements.crm.search;
+package com.openelements.crm.search.lib;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.IOException;
 import java.time.Duration;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicReference;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
+import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
 
@@ -18,19 +20,19 @@ import org.springframework.web.client.RestClientException;
  * {@link RestClient} (already on the classpath via {@code spring-web}).
  *
  * <p>Authentication: this client starts with the master key, but after
- * {@link MeilisearchKeyDeriver} successfully exchanges it for a scoped key
- * the runtime calls use the scoped key. The exchange is one-shot at startup
- * and the master key is not used again.
+ * {@link MeilisearchScopedKeyInitializer} successfully exchanges it for a
+ * scoped key the runtime calls use the scoped key. The exchange is one-shot at
+ * startup and the master key is not used again.
  */
+@Component
 public class MeilisearchClient {
 
     private final RestClient restClient;
     private final ObjectMapper objectMapper;
-    private final MeilisearchProperties props;
     private final AtomicReference<String> apiKey;
 
     public MeilisearchClient(final MeilisearchProperties props, final ObjectMapper objectMapper) {
-        this.props = Objects.requireNonNull(props, "props must not be null");
+        Objects.requireNonNull(props, "props must not be null");
         this.objectMapper = Objects.requireNonNull(objectMapper, "objectMapper must not be null");
         this.apiKey = new AtomicReference<>(props.masterKey());
         this.restClient = RestClient.builder()
@@ -56,14 +58,14 @@ public class MeilisearchClient {
     }
 
     /**
-     * Mints a scoped API key tied to {@code crm_*} indexes via
+     * Mints a scoped API key tied to the given index patterns via
      * {@code POST /keys}. Caller must hold the master key.
      */
     public String createScopedKey(final List<String> indexPatterns, final List<String> actions) {
         try {
             // Use a HashMap rather than Map.of because expiresAt is intentionally
             // null (no expiry) and Map.of rejects null values.
-            final java.util.HashMap<String, Object> payload = new java.util.HashMap<>();
+            final HashMap<String, Object> payload = new HashMap<>();
             payload.put("description", "open-crm runtime key");
             payload.put("actions", actions);
             payload.put("indexes", indexPatterns);
@@ -222,14 +224,5 @@ public class MeilisearchClient {
                     + " for " + req.getURI() + ": " + new String(resp.getBody().readAllBytes()));
             })
             .body(type);
-    }
-
-    public enum TaskOutcome { SUCCEEDED, FAILED, TIMED_OUT }
-
-    /** Thin runtime exception so callers can distinguish Meilisearch errors. */
-    public static final class MeilisearchException extends RuntimeException {
-        public MeilisearchException(final String message) {
-            super(message);
-        }
     }
 }

@@ -10,6 +10,8 @@ import com.openelements.crm.contact.ContactDto;
 import com.openelements.crm.contact.ContactEntity;
 import com.openelements.crm.contact.ContactRepository;
 import com.openelements.crm.contact.SocialLinkDto;
+import com.openelements.crm.search.lib.MeilisearchClient;
+import com.openelements.crm.search.lib.MeilisearchProperties;
 import com.openelements.spring.base.services.tag.TagDto;
 import com.openelements.spring.base.services.tag.TagEntity;
 import com.openelements.spring.base.services.tag.TagRepository;
@@ -40,11 +42,12 @@ class SearchIndexServiceTest {
         final MeilisearchClient client = Mockito.mock(MeilisearchClient.class);
         final MeilisearchProperties props =
             new MeilisearchProperties("http://localhost:7700", "k", "crm_", null);
+        final CrmIndexNames indexNames = new CrmIndexNames(props);
         tagRepository = Mockito.mock(TagRepository.class);
         companyRepository = Mockito.mock(CompanyRepository.class);
         contactRepository = Mockito.mock(ContactRepository.class);
         final JdbcTemplate jdbc = Mockito.mock(JdbcTemplate.class);
-        service = new SearchIndexService(client, props, tagRepository, companyRepository,
+        service = new SearchIndexService(client, indexNames, tagRepository, companyRepository,
             contactRepository, jdbc);
     }
 

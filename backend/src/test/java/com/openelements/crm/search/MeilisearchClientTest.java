@@ -5,6 +5,9 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.openelements.crm.search.lib.MeilisearchClient;
+import com.openelements.crm.search.lib.MeilisearchProperties;
+import com.openelements.crm.search.lib.TaskOutcome;
 import java.io.IOException;
 import java.time.Duration;
 import java.util.List;
@@ -145,7 +148,7 @@ class MeilisearchClientTest {
             .setHeader("Content-Type", "application/json")
             .setBody("{\"status\":\"succeeded\"}"));
 
-        assertEquals(MeilisearchClient.TaskOutcome.SUCCEEDED,
+        assertEquals(TaskOutcome.SUCCEEDED,
             client.waitForTask(1L, Duration.ofSeconds(2)));
     }
 
@@ -157,7 +160,7 @@ class MeilisearchClientTest {
                 .setHeader("Content-Type", "application/json")
                 .setBody("{\"status\":\"enqueued\"}"));
         }
-        assertEquals(MeilisearchClient.TaskOutcome.TIMED_OUT,
+        assertEquals(TaskOutcome.TIMED_OUT,
             client.waitForTask(1L, Duration.ofMillis(100)));
     }
 }

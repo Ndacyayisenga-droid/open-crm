@@ -7,6 +7,7 @@ import com.openelements.crm.contact.ContactDto;
 import com.openelements.crm.contact.ContactEntity;
 import com.openelements.crm.contact.ContactRepository;
 import com.openelements.crm.contact.SocialLinkDto;
+import com.openelements.crm.search.lib.MeilisearchClient;
 import com.openelements.spring.base.services.comment.CommentDto;
 import com.openelements.spring.base.services.tag.TagDto;
 import com.openelements.spring.base.services.tag.TagRepository;
@@ -23,8 +24,8 @@ import org.springframework.stereotype.Service;
 
 /**
  * Maps domain DTOs to Meilisearch documents and dispatches the writes to
- * {@link MeilisearchClient}. The service is invoked from
- * {@link SearchIndexBootstrap} (batched, startup) and
+ * {@link MeilisearchClient}. The service is invoked from the four
+ * {@code *BootstrapStep} beans (batched, startup) and
  * {@link SearchIndexEventListener} (per-event, runtime).
  *
  * <p>Comment owner resolution: {@code CommentEntity} itself does not carry
@@ -39,20 +40,20 @@ public class SearchIndexService {
     private static final Logger log = LoggerFactory.getLogger(SearchIndexService.class);
 
     private final MeilisearchClient client;
-    private final MeilisearchProperties props;
+    private final CrmIndexNames indexNames;
     private final TagRepository tagRepository;
     private final CompanyRepository companyRepository;
     private final ContactRepository contactRepository;
     private final JdbcTemplate jdbcTemplate;
 
     public SearchIndexService(final MeilisearchClient client,
-                              final MeilisearchProperties props,
+                              final CrmIndexNames indexNames,
                               final TagRepository tagRepository,
                               final CompanyRepository companyRepository,
                               final ContactRepository contactRepository,
                               final JdbcTemplate jdbcTemplate) {
         this.client = client;
-        this.props = props;
+        this.indexNames = indexNames;
         this.tagRepository = tagRepository;
         this.companyRepository = companyRepository;
         this.contactRepository = contactRepository;
@@ -62,11 +63,11 @@ public class SearchIndexService {
     // -- Companies --
 
     public void upsertCompany(final CompanyDto dto) {
-        client.addDocuments(props.companiesIndex(), List.of(companyDocument(dto)));
+        client.addDocuments(indexNames.companies(), List.of(companyDocument(dto)));
     }
 
     public void deleteCompany(final UUID id) {
-        client.deleteDocument(props.companiesIndex(), id.toString());
+        client.deleteDocument(indexNames.companies(), id.toString());
     }
 
     public Map<String, Object> companyDocument(final CompanyDto dto) {
@@ -107,11 +108,11 @@ public class SearchIndexService {
     // -- Contacts --
 
     public void upsertContact(final ContactDto dto) {
-        client.addDocuments(props.contactsIndex(), List.of(contactDocument(dto)));
+        client.addDocuments(indexNames.contacts(), List.of(contactDocument(dto)));
     }
 
     public void deleteContact(final UUID id) {
-        client.deleteDocument(props.contactsIndex(), id.toString());
+        client.deleteDocument(indexNames.contacts(), id.toString());
     }
 
     public Map<String, Object> contactDocument(final ContactDto dto) {
@@ -146,11 +147,11 @@ public class SearchIndexService {
     // -- Tags --
 
     public void upsertTag(final TagDto dto) {
-        client.addDocuments(props.tagsIndex(), List.of(tagDocument(dto)));
+        client.addDocuments(indexNames.tags(), List.of(tagDocument(dto)));
     }
 
     public void deleteTag(final UUID id) {
-        client.deleteDocument(props.tagsIndex(), id.toString());
+        client.deleteDocument(indexNames.tags(), id.toString());
     }
 
     public Map<String, Object> tagDocument(final TagDto dto) {
@@ -173,11 +174,11 @@ public class SearchIndexService {
             log.debug("Skipping index of orphan comment {}", dto.id());
             return;
         }
-        client.addDocuments(props.commentsIndex(), List.of(commentDocument(dto, owner.get())));
+        client.addDocuments(indexNames.comments(), List.of(commentDocument(dto, owner.get())));
     }
 
     public void deleteComment(final UUID id) {
-        client.deleteDocument(props.commentsIndex(), id.toString());
+        client.deleteDocument(indexNames.comments(), id.toString());
     }
 
     public Map<String, Object> commentDocument(final CommentDto dto, final OwnerRef owner) {
