@@ -189,3 +189,7 @@ v1 decode contract; this entry tracks the remaining edge-case fixtures so the di
 once produced.
 
 **Prerequisite:** Spec 102 (HEIC & WebP image format support) must be merged.
+
+# Frontend mit PWA erweitern
+
+Es soll einfach möglich sein, das Frontend als PWA zu installieren.
