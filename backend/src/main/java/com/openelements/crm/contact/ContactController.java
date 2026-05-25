@@ -189,7 +189,7 @@ public class ContactController {
     @ApiResponse(responseCode = "400", description = "Invalid file format or size")
     @ApiResponse(responseCode = "404", description = "Contact not found")
     public void uploadPhoto(@Parameter(description = "The contact ID") @PathVariable final UUID id,
-                            @Parameter(description = "The photo image file (JPEG, PNG, WebP, or HEIC; max 2 MB)") @RequestParam("file") final MultipartFile file) {
+                            @Parameter(description = "The photo image file (JPEG, PNG, WebP, or HEIC; max 20 MB)") @RequestParam("file") final MultipartFile file) {
         try {
             contactService.uploadPhoto(id, file.getBytes(), file.getContentType());
         } catch (final java.io.IOException e) {

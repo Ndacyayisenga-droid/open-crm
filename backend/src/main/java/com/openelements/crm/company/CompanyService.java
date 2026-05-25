@@ -257,6 +257,13 @@ public class CompanyService extends AbstractDbBackedDataService<CompanyEntity, C
         final AuditLogEntity entry = new AuditLogEntity();
         entry.setEntityType(COMMENT_ENTITY_TYPE);
         entry.setEntityId(companyId);
+        // spring-services 0.16 makes AuditLogEntity.name NOT NULL. This is a
+        // hand-rolled audit row (not the library's @NameSupplier path), so set
+        // a meaningful name ourselves: the owning company's name.
+        entry.setName(companyRepository.findById(companyId)
+            .map(CompanyEntity::getName)
+            .filter(n -> n != null && !n.isBlank())
+            .orElse("UNKNOWN"));
         entry.setAction(action);
         entry.setUser(userService.getCurrentUserEntity());
         auditLogRepository.save(entry);

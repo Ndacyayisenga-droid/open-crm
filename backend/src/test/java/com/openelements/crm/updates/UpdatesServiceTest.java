@@ -106,7 +106,7 @@ class UpdatesServiceTest extends AbstractDbTest {
     @Test
     void companyCreatedReturnsCorrectEntry() {
         final CompanyEntity company = newCompany("Open Elements GmbH");
-        auditLogDataService.createEntry("CompanyDto", company.getId(), AuditAction.INSERT, alice);
+        auditLogDataService.createEntry("CompanyDto", company.getId(), "Test Name", AuditAction.INSERT, alice);
 
         final List<UpdateEntryDto> result = updatesService.load(20);
 
@@ -121,7 +121,7 @@ class UpdatesServiceTest extends AbstractDbTest {
     @Test
     void companyUpdatedReturnsCurrentName() {
         final CompanyEntity company = newCompany("Acme");
-        auditLogDataService.createEntry("CompanyDto", company.getId(), AuditAction.UPDATE, alice);
+        auditLogDataService.createEntry("CompanyDto", company.getId(), "Test Name", AuditAction.UPDATE, alice);
 
         final List<UpdateEntryDto> result = updatesService.load(20);
         assertEquals(1, result.size());
@@ -131,7 +131,7 @@ class UpdatesServiceTest extends AbstractDbTest {
 
     @Test
     void companyDeletedHasNullEntityIdAndName() {
-        auditLogDataService.createEntry("CompanyDto", UUID.randomUUID(), AuditAction.DELETE, alice);
+        auditLogDataService.createEntry("CompanyDto", UUID.randomUUID(), "Test Name", AuditAction.DELETE, alice);
 
         final List<UpdateEntryDto> result = updatesService.load(20);
         assertEquals(1, result.size());
@@ -143,11 +143,11 @@ class UpdatesServiceTest extends AbstractDbTest {
     @Test
     void renamedCompanyShowsCurrentNameForOlderEntries() throws InterruptedException {
         final CompanyEntity company = newCompany("ACME");
-        auditLogDataService.createEntry("CompanyDto", company.getId(), AuditAction.INSERT, alice);
+        auditLogDataService.createEntry("CompanyDto", company.getId(), "Test Name", AuditAction.INSERT, alice);
         tinyPause();
         company.setName("ACME Corp");
         companyRepository.saveAndFlush(company);
-        auditLogDataService.createEntry("CompanyDto", company.getId(), AuditAction.UPDATE, alice);
+        auditLogDataService.createEntry("CompanyDto", company.getId(), "Test Name", AuditAction.UPDATE, alice);
 
         final List<UpdateEntryDto> result = updatesService.load(20);
         assertEquals(2, result.size());
@@ -159,7 +159,7 @@ class UpdatesServiceTest extends AbstractDbTest {
     @Test
     void contactCreatedUsesDisplayName() {
         final ContactEntity contact = newContact("John", "Doe");
-        auditLogDataService.createEntry("ContactDto", contact.getId(), AuditAction.INSERT, alice);
+        auditLogDataService.createEntry("ContactDto", contact.getId(), "Test Name", AuditAction.INSERT, alice);
 
         final List<UpdateEntryDto> result = updatesService.load(20);
         assertEquals(1, result.size());
@@ -170,7 +170,7 @@ class UpdatesServiceTest extends AbstractDbTest {
 
     @Test
     void contactDeletedHasNullIdAndName() {
-        auditLogDataService.createEntry("ContactDto", UUID.randomUUID(), AuditAction.DELETE, alice);
+        auditLogDataService.createEntry("ContactDto", UUID.randomUUID(), "Test Name", AuditAction.DELETE, alice);
 
         final List<UpdateEntryDto> result = updatesService.load(20);
         assertEquals(1, result.size());
@@ -182,7 +182,7 @@ class UpdatesServiceTest extends AbstractDbTest {
     @Test
     void companyCommentCreatedUsesParentName() {
         final CompanyEntity company = newCompany("Open Elements GmbH");
-        auditLogDataService.createEntry("CompanyComment", company.getId(), AuditAction.INSERT, alice);
+        auditLogDataService.createEntry("CompanyComment", company.getId(), "Test Name", AuditAction.INSERT, alice);
 
         final List<UpdateEntryDto> result = updatesService.load(20);
         assertEquals(1, result.size());
@@ -194,7 +194,7 @@ class UpdatesServiceTest extends AbstractDbTest {
     @Test
     void companyCommentDeletedKeepsParentName() {
         final CompanyEntity company = newCompany("Open Elements GmbH");
-        auditLogDataService.createEntry("CompanyComment", company.getId(), AuditAction.DELETE, alice);
+        auditLogDataService.createEntry("CompanyComment", company.getId(), "Test Name", AuditAction.DELETE, alice);
 
         final List<UpdateEntryDto> result = updatesService.load(20);
         assertEquals(1, result.size());
@@ -206,7 +206,7 @@ class UpdatesServiceTest extends AbstractDbTest {
     @Test
     void contactCommentCreatedUsesContactName() {
         final ContactEntity contact = newContact("Jane", "Doe");
-        auditLogDataService.createEntry("ContactComment", contact.getId(), AuditAction.INSERT, alice);
+        auditLogDataService.createEntry("ContactComment", contact.getId(), "Test Name", AuditAction.INSERT, alice);
 
         final List<UpdateEntryDto> result = updatesService.load(20);
         assertEquals(1, result.size());
@@ -218,10 +218,10 @@ class UpdatesServiceTest extends AbstractDbTest {
     @Test
     void dedupeMergesTwoConsecutiveUpdatesOnSameCompanyBySameUser() throws InterruptedException {
         final CompanyEntity company = newCompany("Acme");
-        auditLogDataService.createEntry("CompanyDto", company.getId(), AuditAction.UPDATE, alice);
+        auditLogDataService.createEntry("CompanyDto", company.getId(), "Test Name", AuditAction.UPDATE, alice);
         tinyPause();
         final var secondId = auditLogDataService
-            .createEntry("CompanyDto", company.getId(), AuditAction.UPDATE, alice).id();
+            .createEntry("CompanyDto", company.getId(), "Test Name", AuditAction.UPDATE, alice).id();
 
         final List<UpdateEntryDto> result = updatesService.load(20);
 
@@ -233,9 +233,9 @@ class UpdatesServiceTest extends AbstractDbTest {
     @Test
     void dedupeDoesNotMergeUpdatesByDifferentUsers() throws InterruptedException {
         final CompanyEntity company = newCompany("Acme");
-        auditLogDataService.createEntry("CompanyDto", company.getId(), AuditAction.UPDATE, alice);
+        auditLogDataService.createEntry("CompanyDto", company.getId(), "Test Name", AuditAction.UPDATE, alice);
         tinyPause();
-        auditLogDataService.createEntry("CompanyDto", company.getId(), AuditAction.UPDATE, bob);
+        auditLogDataService.createEntry("CompanyDto", company.getId(), "Test Name", AuditAction.UPDATE, bob);
 
         final List<UpdateEntryDto> result = updatesService.load(20);
         assertEquals(2, result.size());
@@ -245,9 +245,9 @@ class UpdatesServiceTest extends AbstractDbTest {
     void dedupeDoesNotMergeUpdatesOnDifferentCompanies() throws InterruptedException {
         final CompanyEntity c1 = newCompany("Acme");
         final CompanyEntity c2 = newCompany("Globex");
-        auditLogDataService.createEntry("CompanyDto", c1.getId(), AuditAction.UPDATE, alice);
+        auditLogDataService.createEntry("CompanyDto", c1.getId(), "Test Name", AuditAction.UPDATE, alice);
         tinyPause();
-        auditLogDataService.createEntry("CompanyDto", c2.getId(), AuditAction.UPDATE, alice);
+        auditLogDataService.createEntry("CompanyDto", c2.getId(), "Test Name", AuditAction.UPDATE, alice);
 
         final List<UpdateEntryDto> result = updatesService.load(20);
         assertEquals(2, result.size());
@@ -256,9 +256,9 @@ class UpdatesServiceTest extends AbstractDbTest {
     @Test
     void dedupeDoesNotMergeCreateFollowedByUpdate() throws InterruptedException {
         final CompanyEntity company = newCompany("Acme");
-        auditLogDataService.createEntry("CompanyDto", company.getId(), AuditAction.INSERT, alice);
+        auditLogDataService.createEntry("CompanyDto", company.getId(), "Test Name", AuditAction.INSERT, alice);
         tinyPause();
-        auditLogDataService.createEntry("CompanyDto", company.getId(), AuditAction.UPDATE, alice);
+        auditLogDataService.createEntry("CompanyDto", company.getId(), "Test Name", AuditAction.UPDATE, alice);
 
         final List<UpdateEntryDto> result = updatesService.load(20);
         assertEquals(2, result.size());
@@ -269,9 +269,9 @@ class UpdatesServiceTest extends AbstractDbTest {
     @Test
     void dedupeDoesNotMergeUpdateFollowedByDelete() throws InterruptedException {
         final CompanyEntity company = newCompany("Acme");
-        auditLogDataService.createEntry("CompanyDto", company.getId(), AuditAction.UPDATE, alice);
+        auditLogDataService.createEntry("CompanyDto", company.getId(), "Test Name", AuditAction.UPDATE, alice);
         tinyPause();
-        auditLogDataService.createEntry("CompanyDto", company.getId(), AuditAction.DELETE, alice);
+        auditLogDataService.createEntry("CompanyDto", company.getId(), "Test Name", AuditAction.DELETE, alice);
 
         final List<UpdateEntryDto> result = updatesService.load(20);
         assertEquals(2, result.size());
@@ -282,9 +282,9 @@ class UpdatesServiceTest extends AbstractDbTest {
     @Test
     void dedupeAppliesToContactUpdates() throws InterruptedException {
         final ContactEntity contact = newContact("Jane", "Doe");
-        auditLogDataService.createEntry("ContactDto", contact.getId(), AuditAction.UPDATE, alice);
+        auditLogDataService.createEntry("ContactDto", contact.getId(), "Test Name", AuditAction.UPDATE, alice);
         tinyPause();
-        auditLogDataService.createEntry("ContactDto", contact.getId(), AuditAction.UPDATE, alice);
+        auditLogDataService.createEntry("ContactDto", contact.getId(), "Test Name", AuditAction.UPDATE, alice);
 
         final List<UpdateEntryDto> result = updatesService.load(20);
         assertEquals(1, result.size());
@@ -294,9 +294,9 @@ class UpdatesServiceTest extends AbstractDbTest {
     @Test
     void dedupeAppliesToCommentUpdatesOnSameParent() throws InterruptedException {
         final CompanyEntity company = newCompany("Acme");
-        auditLogDataService.createEntry("CompanyComment", company.getId(), AuditAction.UPDATE, alice);
+        auditLogDataService.createEntry("CompanyComment", company.getId(), "Test Name", AuditAction.UPDATE, alice);
         tinyPause();
-        auditLogDataService.createEntry("CompanyComment", company.getId(), AuditAction.UPDATE, alice);
+        auditLogDataService.createEntry("CompanyComment", company.getId(), "Test Name", AuditAction.UPDATE, alice);
 
         final List<UpdateEntryDto> result = updatesService.load(20);
         assertEquals(1, result.size());
@@ -306,11 +306,11 @@ class UpdatesServiceTest extends AbstractDbTest {
     @Test
     void dedupeSkipsFilteredEntriesBetweenCandidates() throws InterruptedException {
         final CompanyEntity company = newCompany("Acme");
-        auditLogDataService.createEntry("CompanyDto", company.getId(), AuditAction.UPDATE, alice);
+        auditLogDataService.createEntry("CompanyDto", company.getId(), "Test Name", AuditAction.UPDATE, alice);
         tinyPause();
-        auditLogDataService.createEntry("Webhook", UUID.randomUUID(), AuditAction.UPDATE, alice);
+        auditLogDataService.createEntry("Webhook", UUID.randomUUID(), "Test Name", AuditAction.UPDATE, alice);
         tinyPause();
-        auditLogDataService.createEntry("CompanyDto", company.getId(), AuditAction.UPDATE, alice);
+        auditLogDataService.createEntry("CompanyDto", company.getId(), "Test Name", AuditAction.UPDATE, alice);
 
         final List<UpdateEntryDto> result = updatesService.load(20);
         assertEquals(1, result.size(), "filtered entry between two UPDATEs should be dropped, the two UPDATEs collapse");
@@ -318,10 +318,10 @@ class UpdatesServiceTest extends AbstractDbTest {
 
     @Test
     void outOfScopeEntityTypesAreNotExposed() {
-        auditLogDataService.createEntry("Webhook", UUID.randomUUID(), AuditAction.INSERT, alice);
-        auditLogDataService.createEntry("ApiKey", UUID.randomUUID(), AuditAction.INSERT, alice);
-        auditLogDataService.createEntry("Tag", UUID.randomUUID(), AuditAction.INSERT, alice);
-        auditLogDataService.createEntry("UserDto", UUID.randomUUID(), AuditAction.INSERT, alice);
+        auditLogDataService.createEntry("Webhook", UUID.randomUUID(), "Test Name", AuditAction.INSERT, alice);
+        auditLogDataService.createEntry("ApiKey", UUID.randomUUID(), "Test Name", AuditAction.INSERT, alice);
+        auditLogDataService.createEntry("Tag", UUID.randomUUID(), "Test Name", AuditAction.INSERT, alice);
+        auditLogDataService.createEntry("UserDto", UUID.randomUUID(), "Test Name", AuditAction.INSERT, alice);
 
         final List<UpdateEntryDto> result = updatesService.load(20);
         assertTrue(result.isEmpty(), "non-relevant entity types must be filtered out");
@@ -330,11 +330,11 @@ class UpdatesServiceTest extends AbstractDbTest {
     @Test
     void entriesAreSortedNewestFirst() throws InterruptedException {
         final CompanyEntity company = newCompany("Acme");
-        final var firstId = auditLogDataService.createEntry("CompanyDto", company.getId(), AuditAction.INSERT, alice).id();
+        final var firstId = auditLogDataService.createEntry("CompanyDto", company.getId(), "Test Name", AuditAction.INSERT, alice).id();
         tinyPause();
-        final var secondId = auditLogDataService.createEntry("CompanyDto", company.getId(), AuditAction.UPDATE, alice).id();
+        final var secondId = auditLogDataService.createEntry("CompanyDto", company.getId(), "Test Name", AuditAction.UPDATE, alice).id();
         tinyPause();
-        final var thirdId = auditLogDataService.createEntry("CompanyDto", company.getId(), AuditAction.DELETE, alice).id();
+        final var thirdId = auditLogDataService.createEntry("CompanyDto", company.getId(), "Test Name", AuditAction.DELETE, alice).id();
 
         final List<UpdateEntryDto> result = updatesService.load(20);
         assertEquals(3, result.size());
@@ -346,9 +346,9 @@ class UpdatesServiceTest extends AbstractDbTest {
     @Test
     void fewerEntriesThanRequestedSizeReturnsAll() {
         final CompanyEntity company = newCompany("Acme");
-        auditLogDataService.createEntry("CompanyDto", company.getId(), AuditAction.INSERT, alice);
-        auditLogDataService.createEntry("CompanyDto", company.getId(), AuditAction.DELETE, alice);
-        auditLogDataService.createEntry("CompanyDto", company.getId(), AuditAction.UPDATE, alice);
+        auditLogDataService.createEntry("CompanyDto", company.getId(), "Test Name", AuditAction.INSERT, alice);
+        auditLogDataService.createEntry("CompanyDto", company.getId(), "Test Name", AuditAction.DELETE, alice);
+        auditLogDataService.createEntry("CompanyDto", company.getId(), "Test Name", AuditAction.UPDATE, alice);
 
         final List<UpdateEntryDto> result = updatesService.load(20);
         assertEquals(3, result.size());
@@ -359,12 +359,12 @@ class UpdatesServiceTest extends AbstractDbTest {
         final CompanyEntity company = newCompany("Acme");
         // Write 50 UPDATEs by alice — should collapse to one
         for (int i = 0; i < 50; i++) {
-            auditLogDataService.createEntry("CompanyDto", company.getId(), AuditAction.UPDATE, alice);
+            auditLogDataService.createEntry("CompanyDto", company.getId(), "Test Name", AuditAction.UPDATE, alice);
         }
         // Write 20 distinct INSERTs (different ids)
         for (int i = 0; i < 20; i++) {
             tinyPause();
-            auditLogDataService.createEntry("CompanyDto", UUID.randomUUID(), AuditAction.INSERT, alice);
+            auditLogDataService.createEntry("CompanyDto", UUID.randomUUID(), "Test Name", AuditAction.INSERT, alice);
         }
 
         final List<UpdateEntryDto> result = updatesService.load(20);
@@ -374,7 +374,7 @@ class UpdatesServiceTest extends AbstractDbTest {
     @Test
     void entityVanishesBetweenAuditEmissionAndRead() {
         final UUID unknownId = UUID.randomUUID();
-        auditLogDataService.createEntry("CompanyDto", unknownId, AuditAction.UPDATE, alice);
+        auditLogDataService.createEntry("CompanyDto", unknownId, "Test Name", AuditAction.UPDATE, alice);
 
         final List<UpdateEntryDto> result = updatesService.load(20);
         assertEquals(1, result.size());
@@ -385,7 +385,7 @@ class UpdatesServiceTest extends AbstractDbTest {
     @Test
     void commentParentHasBeenDeleted() {
         final UUID unknownParent = UUID.randomUUID();
-        auditLogDataService.createEntry("CompanyComment", unknownParent, AuditAction.DELETE, alice);
+        auditLogDataService.createEntry("CompanyComment", unknownParent, "Test Name", AuditAction.DELETE, alice);
 
         final List<UpdateEntryDto> result = updatesService.load(20);
         assertEquals(1, result.size());
@@ -397,8 +397,8 @@ class UpdatesServiceTest extends AbstractDbTest {
     @Test
     void taskCommentsAreNotEmittedAsUpdates() {
         // No "TaskComment" entityType is in scope; even if such an entry were present, it must be filtered out.
-        auditLogDataService.createEntry("TaskComment", UUID.randomUUID(), AuditAction.INSERT, alice);
-        auditLogDataService.createEntry("Task", UUID.randomUUID(), AuditAction.UPDATE, alice);
+        auditLogDataService.createEntry("TaskComment", UUID.randomUUID(), "Test Name", AuditAction.INSERT, alice);
+        auditLogDataService.createEntry("Task", UUID.randomUUID(), "Test Name", AuditAction.UPDATE, alice);
 
         final List<UpdateEntryDto> result = updatesService.load(20);
         assertTrue(result.isEmpty());
@@ -407,7 +407,7 @@ class UpdatesServiceTest extends AbstractDbTest {
     @Test
     void companyEventWithLogoSetsEntityHasLogoTrue() {
         final CompanyEntity company = newCompanyWithLogo("Open Elements GmbH");
-        auditLogDataService.createEntry("CompanyDto", company.getId(), AuditAction.UPDATE, alice);
+        auditLogDataService.createEntry("CompanyDto", company.getId(), "Test Name", AuditAction.UPDATE, alice);
 
         final List<UpdateEntryDto> result = updatesService.load(20);
 
@@ -419,7 +419,7 @@ class UpdatesServiceTest extends AbstractDbTest {
     @Test
     void companyEventWithoutLogoSetsEntityHasLogoFalse() {
         final CompanyEntity company = newCompany("Acme");
-        auditLogDataService.createEntry("CompanyDto", company.getId(), AuditAction.UPDATE, alice);
+        auditLogDataService.createEntry("CompanyDto", company.getId(), "Test Name", AuditAction.UPDATE, alice);
 
         final List<UpdateEntryDto> result = updatesService.load(20);
 
@@ -431,7 +431,7 @@ class UpdatesServiceTest extends AbstractDbTest {
     @Test
     void contactEventWithPhotoSetsEntityHasPhotoTrue() {
         final ContactEntity contact = newContactWithPhoto("John", "Doe");
-        auditLogDataService.createEntry("ContactDto", contact.getId(), AuditAction.UPDATE, alice);
+        auditLogDataService.createEntry("ContactDto", contact.getId(), "Test Name", AuditAction.UPDATE, alice);
 
         final List<UpdateEntryDto> result = updatesService.load(20);
 
@@ -443,7 +443,7 @@ class UpdatesServiceTest extends AbstractDbTest {
     @Test
     void contactEventWithoutPhotoSetsEntityHasPhotoFalse() {
         final ContactEntity contact = newContact("Jane", "Doe");
-        auditLogDataService.createEntry("ContactDto", contact.getId(), AuditAction.UPDATE, alice);
+        auditLogDataService.createEntry("ContactDto", contact.getId(), "Test Name", AuditAction.UPDATE, alice);
 
         final List<UpdateEntryDto> result = updatesService.load(20);
 
@@ -454,7 +454,7 @@ class UpdatesServiceTest extends AbstractDbTest {
 
     @Test
     void companyDeletedHasBothFlagsFalse() {
-        auditLogDataService.createEntry("CompanyDto", UUID.randomUUID(), AuditAction.DELETE, alice);
+        auditLogDataService.createEntry("CompanyDto", UUID.randomUUID(), "Test Name", AuditAction.DELETE, alice);
 
         final List<UpdateEntryDto> result = updatesService.load(20);
 
@@ -465,7 +465,7 @@ class UpdatesServiceTest extends AbstractDbTest {
 
     @Test
     void contactDeletedHasBothFlagsFalse() {
-        auditLogDataService.createEntry("ContactDto", UUID.randomUUID(), AuditAction.DELETE, alice);
+        auditLogDataService.createEntry("ContactDto", UUID.randomUUID(), "Test Name", AuditAction.DELETE, alice);
 
         final List<UpdateEntryDto> result = updatesService.load(20);
 
@@ -477,7 +477,7 @@ class UpdatesServiceTest extends AbstractDbTest {
     @Test
     void companyCommentEventInheritsParentLogoFlag() {
         final CompanyEntity company = newCompanyWithLogo("Open Elements GmbH");
-        auditLogDataService.createEntry("CompanyComment", company.getId(), AuditAction.INSERT, alice);
+        auditLogDataService.createEntry("CompanyComment", company.getId(), "Test Name", AuditAction.INSERT, alice);
 
         final List<UpdateEntryDto> result = updatesService.load(20);
 
@@ -489,7 +489,7 @@ class UpdatesServiceTest extends AbstractDbTest {
     @Test
     void companyCommentDeletedKeepsParentLogoFlag() {
         final CompanyEntity company = newCompanyWithLogo("Open Elements GmbH");
-        auditLogDataService.createEntry("CompanyComment", company.getId(), AuditAction.DELETE, alice);
+        auditLogDataService.createEntry("CompanyComment", company.getId(), "Test Name", AuditAction.DELETE, alice);
 
         final List<UpdateEntryDto> result = updatesService.load(20);
 
@@ -501,7 +501,7 @@ class UpdatesServiceTest extends AbstractDbTest {
     @Test
     void contactCommentEventInheritsParentPhotoFlag() {
         final ContactEntity contact = newContactWithPhoto("Jane", "Doe");
-        auditLogDataService.createEntry("ContactComment", contact.getId(), AuditAction.INSERT, alice);
+        auditLogDataService.createEntry("ContactComment", contact.getId(), "Test Name", AuditAction.INSERT, alice);
 
         final List<UpdateEntryDto> result = updatesService.load(20);
 
@@ -513,7 +513,7 @@ class UpdatesServiceTest extends AbstractDbTest {
     @Test
     void unresolvedEntityHasBothFlagsFalse() {
         final UUID unknownId = UUID.randomUUID();
-        auditLogDataService.createEntry("CompanyDto", unknownId, AuditAction.UPDATE, alice);
+        auditLogDataService.createEntry("CompanyDto", unknownId, "Test Name", AuditAction.UPDATE, alice);
 
         final List<UpdateEntryDto> result = updatesService.load(20);
 
@@ -529,7 +529,7 @@ class UpdatesServiceTest extends AbstractDbTest {
         final CompanyEntity company = newCompany("Acme");
         for (int i = 0; i < 30; i++) {
             tinyPause();
-            auditLogDataService.createEntry("CompanyDto", UUID.randomUUID(), AuditAction.INSERT, alice);
+            auditLogDataService.createEntry("CompanyDto", UUID.randomUUID(), "Test Name", AuditAction.INSERT, alice);
         }
         assertNotNull(company);
 

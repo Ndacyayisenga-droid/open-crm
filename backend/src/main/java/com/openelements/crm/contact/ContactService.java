@@ -53,7 +53,7 @@ public class ContactService extends AbstractDbBackedDataService<ContactEntity, C
     private final TagRepository tagRepository;
     private final AuditLogRepository auditLogRepository;
     private final UserService userService;
-    private final HeicSupportCheck heicSupportCheck;
+    private final CrmHeicSupportCheck crmHeicSupportCheck;
 
     public ContactService(final ContactRepository contactRepository,
                           final CompanyRepository companyRepository,
@@ -62,7 +62,7 @@ public class ContactService extends AbstractDbBackedDataService<ContactEntity, C
                           final TagRepository tagRepository,
                           final AuditLogRepository auditLogRepository,
                           final UserService userService,
-                          final HeicSupportCheck heicSupportCheck,
+                          final CrmHeicSupportCheck crmHeicSupportCheck,
                           final ApplicationEventPublisher eventPublisher) {
         super((eventPublisher));
         this.contactRepository = Objects.requireNonNull(contactRepository, "contactRepository must not be null");
@@ -72,7 +72,7 @@ public class ContactService extends AbstractDbBackedDataService<ContactEntity, C
         this.tagRepository = Objects.requireNonNull(tagRepository, "tagRepository must not be null");
         this.auditLogRepository = Objects.requireNonNull(auditLogRepository, "auditLogRepository must not be null");
         this.userService = Objects.requireNonNull(userService, "userService must not be null");
-        this.heicSupportCheck = Objects.requireNonNull(heicSupportCheck, "heicSupportCheck must not be null");
+        this.crmHeicSupportCheck = Objects.requireNonNull(crmHeicSupportCheck, "crmHeicSupportCheck must not be null");
     }
 
     /**
@@ -245,8 +245,14 @@ public class ContactService extends AbstractDbBackedDataService<ContactEntity, C
      * image/webp}, and {@code image/heic} / {@code image/heif} (all transcoded
      * server-side to JPEG, alpha flattened over white where applicable, EXIF
      * orientation applied for WebP/HEIC). Any other content type is rejected
-     * with 400. The 2 MB cap is enforced on the raw upload bytes before any
+     * with 400. The 20 MB cap is enforced on the raw upload bytes before any
      * transcoding work.
+     *
+     * <p>Transcoding is delegated to the spring-services {@code ImageData}
+     * library ({@code ImageData.of(...).asJpeg()}); this method keeps the
+     * explicit size and content-type guards because the library signals those
+     * failures with {@code IllegalArgumentException}, whereas the API contract
+     * requires {@code 400} at this boundary.
      *
      * <p>HEIC uploads are rejected with {@code 415 UNSUPPORTED_MEDIA_TYPE} when
      * the runtime probe reports {@code libheif} unavailable — the JAR ships
@@ -266,7 +272,7 @@ public class ContactService extends AbstractDbBackedDataService<ContactEntity, C
         Objects.requireNonNull(id, "id must not be null");
         Objects.requireNonNull(data, "data must not be null");
         if (data.length > ImageData.MAX_IMAGE_SIZE) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Photo exceeds 2 MB");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Photo exceeds 20 MB");
         }
         // Treat missing / unrecognized content type as the rejection branch, not
         // an NPE — the multipart layer hands us null when the client omits the
@@ -274,14 +280,13 @@ public class ContactService extends AbstractDbBackedDataService<ContactEntity, C
         final String type = contentType == null ? "" : contentType;
         final byte[] storedBytes = switch (type) {
             case "image/jpeg" -> data;
-            case "image/png" -> ContactPhotoTranscoder.pngToJpeg(data);
-            case "image/webp" -> ContactPhotoTranscoder.webpToJpeg(data);
+            case "image/png", "image/webp" -> transcodeToJpeg(data, type);
             case "image/heic", "image/heif" -> {
-                if (!heicSupportCheck.isHeicAvailable()) {
+                if (!crmHeicSupportCheck.isHeicAvailable()) {
                     throw new ResponseStatusException(HttpStatus.UNSUPPORTED_MEDIA_TYPE,
                         "HEIC support is not available in this deployment");
                 }
-                yield ContactPhotoTranscoder.heicToJpeg(data);
+                yield transcodeToJpeg(data, type);
             }
             default -> throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
                 "Only JPEG, PNG, WebP, and HEIC are accepted");
@@ -290,6 +295,23 @@ public class ContactService extends AbstractDbBackedDataService<ContactEntity, C
         entity.setPhoto(storedBytes);
         entity.setPhotoContentType("image/jpeg");
         contactRepository.saveAndFlush(entity);
+    }
+
+    /**
+     * Transcodes {@code data} of the given (already-validated) content type to
+     * JPEG via the spring-services {@code ImageData} library. A decode failure
+     * (corrupt or truncated input) is surfaced as {@code 400 BAD_REQUEST} so the
+     * caller-facing contract matches the pre-library behavior.
+     */
+    private static byte[] transcodeToJpeg(final byte[] data, final String type) {
+        try {
+            return ImageData.of(data, type).asJpeg().data();
+        } catch (final ResponseStatusException e) {
+            throw e;
+        } catch (final RuntimeException e) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                "Could not decode " + type + " image", e);
+        }
     }
 
     /**
@@ -374,9 +396,20 @@ public class ContactService extends AbstractDbBackedDataService<ContactEntity, C
         final AuditLogEntity entry = new AuditLogEntity();
         entry.setEntityType(COMMENT_ENTITY_TYPE);
         entry.setEntityId(contactId);
+        // spring-services 0.16 makes AuditLogEntity.name NOT NULL. This is a
+        // hand-rolled audit row (not the library's @NameSupplier path), so set
+        // a meaningful name ourselves: the owning contact's display name.
+        entry.setName(contactRepository.findById(contactId)
+            .map(c -> (nullSafe(c.getFirstName()) + " " + nullSafe(c.getLastName())).trim())
+            .filter(n -> !n.isBlank())
+            .orElse("UNKNOWN"));
         entry.setAction(action);
         entry.setUser(userService.getCurrentUserEntity());
         auditLogRepository.save(entry);
+    }
+
+    private static String nullSafe(final String value) {
+        return value == null ? "" : value;
     }
 
     private void assertCommentBelongsToContact(final UUID contactId, final UUID commentId) {

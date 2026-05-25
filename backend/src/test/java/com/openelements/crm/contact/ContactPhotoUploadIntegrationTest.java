@@ -138,7 +138,7 @@ class ContactPhotoUploadIntegrationTest extends AbstractDbTest {
     @Test
     void oversizedJpegIsRejected() throws Exception {
         final ContactEntity contact = newContact();
-        final byte[] big = new byte[3 * 1024 * 1024];
+        final byte[] big = new byte[21 * 1024 * 1024];
         final MockMultipartFile file = new MockMultipartFile("file", "big.jpg", "image/jpeg", big);
 
         mockMvc.perform(asUser(upload(contact).file(file)))
@@ -193,9 +193,9 @@ class ContactPhotoUploadIntegrationTest extends AbstractDbTest {
     @Test
     void oversizedPngIsRejectedBeforeTranscoding() throws Exception {
         final ContactEntity contact = newContact();
-        // 3 MB of zeros — content does not need to be a valid PNG; the size
+        // 21 MB of zeros — content does not need to be a valid PNG; the size
         // check fires first.
-        final byte[] big = new byte[3 * 1024 * 1024];
+        final byte[] big = new byte[21 * 1024 * 1024];
         final MockMultipartFile file = new MockMultipartFile("file", "big.png", "image/png", big);
 
         mockMvc.perform(asUser(upload(contact).file(file)))
