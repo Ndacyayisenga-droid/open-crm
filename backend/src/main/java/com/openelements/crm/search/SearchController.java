@@ -1,9 +1,9 @@
 package com.openelements.crm.search;
 
 import com.fasterxml.jackson.databind.JsonNode;
-import com.openelements.crm.search.lib.Highlighter;
-import com.openelements.crm.search.lib.MeilisearchClient;
-import com.openelements.crm.search.lib.SearchReadinessState;
+import com.openelements.spring.base.services.search.Highlighter;
+import com.openelements.spring.base.services.search.MeilisearchClient;
+import com.openelements.spring.base.services.search.SearchReadinessState;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -26,7 +26,7 @@ import org.springframework.web.bind.annotation.RestController;
  * call to four CRM indexes (companies / contacts / tags / comments) and
  * returns the results grouped per section.
  *
- * <p>Until {@link com.openelements.crm.search.lib.MeilisearchBootstrapRunner}
+ * <p>Until {@link com.openelements.spring.base.services.search.MeilisearchBootstrapRunner}
  * reports finished, responds with {@code 503 SERVICE_UNAVAILABLE} +
  * {@code Retry-After: 30} so clients can back off cleanly.
  */

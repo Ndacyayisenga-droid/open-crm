@@ -11,7 +11,7 @@ import com.openelements.crm.company.CompanyDto;
 import com.openelements.crm.company.CompanyService;
 import com.openelements.crm.contact.ContactDto;
 import com.openelements.crm.contact.ContactService;
-import com.openelements.crm.search.lib.SearchReadinessState;
+import com.openelements.spring.base.services.search.SearchReadinessState;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collection;

@@ -1,6 +1,6 @@
 package com.openelements.crm.search;
 
-import com.openelements.crm.search.lib.SearchIndexBootstrapStep;
+import com.openelements.spring.base.services.search.SearchIndexBootstrapStep;
 import com.openelements.spring.base.services.tag.TagDto;
 import com.openelements.spring.base.services.tag.TagEntity;
 import com.openelements.spring.base.services.tag.TagRepository;

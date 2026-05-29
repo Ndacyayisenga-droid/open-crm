@@ -2,7 +2,7 @@ package com.openelements.crm.search;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-import com.openelements.crm.search.lib.MeilisearchProperties;
+import com.openelements.spring.base.services.search.MeilisearchProperties;
 import java.time.Duration;
 import org.junit.jupiter.api.Test;
 

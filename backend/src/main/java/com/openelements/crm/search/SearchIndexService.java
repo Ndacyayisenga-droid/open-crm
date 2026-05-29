@@ -7,7 +7,7 @@ import com.openelements.crm.contact.ContactDto;
 import com.openelements.crm.contact.ContactEntity;
 import com.openelements.crm.contact.ContactRepository;
 import com.openelements.crm.contact.SocialLinkDto;
-import com.openelements.crm.search.lib.MeilisearchClient;
+import com.openelements.spring.base.services.search.MeilisearchClient;
 import com.openelements.spring.base.services.comment.CommentDto;
 import com.openelements.spring.base.services.tag.TagDto;
 import com.openelements.spring.base.services.tag.TagRepository;

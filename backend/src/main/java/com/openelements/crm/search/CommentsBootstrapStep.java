@@ -1,7 +1,7 @@
 package com.openelements.crm.search;
 
 import com.openelements.crm.search.SearchIndexService.OwnerRef;
-import com.openelements.crm.search.lib.SearchIndexBootstrapStep;
+import com.openelements.spring.base.services.search.SearchIndexBootstrapStep;
 import com.openelements.spring.base.services.comment.CommentDto;
 import com.openelements.spring.base.services.comment.CommentEntity;
 import com.openelements.spring.base.services.comment.CommentRepository;

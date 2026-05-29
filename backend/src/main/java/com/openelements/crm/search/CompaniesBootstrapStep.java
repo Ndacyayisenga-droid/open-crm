@@ -3,7 +3,7 @@ package com.openelements.crm.search;
 import com.openelements.crm.company.CompanyDto;
 import com.openelements.crm.company.CompanyEntity;
 import com.openelements.crm.company.CompanyRepository;
-import com.openelements.crm.search.lib.SearchIndexBootstrapStep;
+import com.openelements.spring.base.services.search.SearchIndexBootstrapStep;
 import com.openelements.spring.base.services.tag.TagEntity;
 import java.util.List;
 import java.util.Map;

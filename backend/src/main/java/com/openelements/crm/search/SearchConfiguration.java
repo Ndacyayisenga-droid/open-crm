@@ -1,27 +1,24 @@
 package com.openelements.crm.search;
 
-import com.openelements.crm.search.lib.IndexSettings;
-import com.openelements.crm.search.lib.MeilisearchConfiguration;
-import com.openelements.crm.search.lib.ScopedKeySpec;
+import com.openelements.spring.base.services.search.IndexSettings;
+import com.openelements.spring.base.services.search.ScopedKeySpec;
 import java.util.List;
 import java.util.concurrent.Executor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.context.annotation.Import;
 import org.springframework.scheduling.annotation.EnableAsync;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 
 /**
- * CRM-side wiring for global search. Activates the reusable Meilisearch lib via
- * {@link MeilisearchConfiguration} and supplies everything the lib leaves to
- * the application: the {@code searchIndexExecutor} thread pool, the scoped-key
- * specification, and the per-index settings for the four CRM indexes.
+ * CRM-side wiring for global search. The Meilisearch lib itself is activated by
+ * {@link com.openelements.spring.base.FullSpringServiceConfig} via {@code SearchConfig}; this class
+ * supplies what the lib leaves to the application: the {@code searchIndexExecutor} thread pool, the
+ * scoped-key specification, and the per-index settings for the four CRM indexes.
  *
- * <p>The four {@link SearchIndexBootstrapStep} beans and {@link CrmIndexNames}
- * are {@code @Component}s discovered by the application's component scan.
+ * <p>The four {@link com.openelements.spring.base.services.search.SearchIndexBootstrapStep} beans
+ * and {@link CrmIndexNames} are {@code @Component}s discovered by the application's component scan.
  */
 @Configuration
-@Import(MeilisearchConfiguration.class)
 @EnableAsync
 public class SearchConfiguration {
 

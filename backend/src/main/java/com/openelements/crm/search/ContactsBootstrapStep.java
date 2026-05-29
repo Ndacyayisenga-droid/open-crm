@@ -5,7 +5,7 @@ import com.openelements.crm.contact.ContactDto;
 import com.openelements.crm.contact.ContactEntity;
 import com.openelements.crm.contact.ContactRepository;
 import com.openelements.crm.contact.SocialLinkDto;
-import com.openelements.crm.search.lib.SearchIndexBootstrapStep;
+import com.openelements.spring.base.services.search.SearchIndexBootstrapStep;
 import com.openelements.spring.base.services.tag.TagEntity;
 import java.util.List;
 import java.util.Map;

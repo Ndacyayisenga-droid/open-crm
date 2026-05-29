@@ -1,6 +1,6 @@
 package com.openelements.crm.search;
 
-import com.openelements.crm.search.lib.MeilisearchProperties;
+import com.openelements.spring.base.services.search.MeilisearchProperties;
 import org.springframework.stereotype.Component;
 
 /**
