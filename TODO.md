@@ -193,3 +193,24 @@ once produced.
 # Frontend mit PWA erweitern
 
 Es soll einfach möglich sein, das Frontend als PWA zu installieren.
+
+## Strikte Audience-Prüfung für JWT-Validierung (inkl. MCP-Endpoint)
+
+The Spring Security Resource Server (`spring.security.oauth2.resourceserver.jwt`) currently validates only the JWT
+signature via JWKS — it does **not** check the `aud` claim. As a result, any Authentik-issued token from the same
+tenant (e.g. one issued for the `open-crm` web frontend client) is accepted on all `/api/*` endpoints, and the same
+applies to the planned MCP endpoint.
+
+For tighter isolation, configure an audience validator that requires `aud` to contain the expected client ID:
+
+- `/api/*` (web/api-key paths) → require `aud=open-crm` (or whatever the existing frontend client is named).
+- `/mcp/*` (new MCP endpoint) → require `aud=open-crm-mcp` so a leaked frontend token cannot access the MCP server
+  and vice versa.
+
+The MCP-Connector spec deliberately defers this and treats both clients as accepted; harden once the MCP endpoint
+is in production and the operational impact of stricter audience checks has been evaluated.
+
+**Context:** Surfaced during the grill session for the MCP-Connector spec. Treated as a follow-up so the initial
+MCP rollout is not blocked.
+
+**Prerequisite:** MCP-Connector spec must be merged.
