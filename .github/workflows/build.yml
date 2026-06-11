@@ -6,6 +6,10 @@ on:
   pull_request:
     branches: [main]
 
+permissions:
+  contents: read
+  packages: read
+
 jobs:
   backend:
     runs-on: ubuntu-latest
@@ -18,7 +22,15 @@ jobs:
         with:
           java-version: "21"
           distribution: "temurin"
+          # Generates ~/.m2/settings.xml so the 'github' repository in
+          # backend/pom.xml can pull the spring-services 1.0.0-SNAPSHOT
+          # artifact (spec 107) from GitHub Packages.
+          server-id: github
+          server-username: GITHUB_ACTOR
+          server-password: GITHUB_TOKEN
       - run: ./mvnw clean verify
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   frontend:
     runs-on: ubuntu-latest
@@ -27,7 +39,12 @@ jobs:
         working-directory: frontend
     steps:
       - uses: actions/checkout@v6
-      - uses: pnpm/action-setup@v4 # reads pnpm version from packageManager
+      - uses: pnpm/action-setup@v4
+        with:
+          # pnpm/action-setup runs from the repo root, not the job's
+          # working-directory, so point it at the frontend package.json
+          # for the packageManager field.
+          package_json_file: frontend/package.json
       - uses: actions/setup-node@v6
         with:
           node-version-file: "frontend/.nvmrc" # reads Node version from .nvmrc

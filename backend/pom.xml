@@ -38,6 +38,37 @@
         <mockwebserver.version>4.12.0</mockwebserver.version>
     </properties>
 
+    <!--
+        spring-services 1.0.0-SNAPSHOT (introduced for spec 107 — the backup admin dialog)
+        is currently only published to GitHub Packages. The setup-java action in CI generates
+        a settings.xml that maps server id 'github' to the workflow's GITHUB_TOKEN, which
+        provides read access to the public OpenElementsLabs/spring-services packages.
+    -->
+    <repositories>
+        <repository>
+            <id>central</id>
+            <name>Maven Central</name>
+            <url>https://repo.maven.apache.org/maven2</url>
+            <releases>
+                <enabled>true</enabled>
+            </releases>
+            <snapshots>
+                <enabled>false</enabled>
+            </snapshots>
+        </repository>
+        <repository>
+            <id>github</id>
+            <name>OpenElementsLabs spring-services on GitHub Packages</name>
+            <url>https://maven.pkg.github.com/OpenElementsLabs/spring-services</url>
+            <releases>
+                <enabled>true</enabled>
+            </releases>
+            <snapshots>
+                <enabled>true</enabled>
+            </snapshots>
+        </repository>
+    </repositories>
+
     <dependencyManagement>
         <dependencies>
             <dependency>
