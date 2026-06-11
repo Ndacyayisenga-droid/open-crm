@@ -203,3 +203,47 @@ export interface BrevoSyncResultDto {
   readonly contactsUnlinked: number;
   readonly errors: readonly string[];
 }
+
+// Backup admin (spec 107)
+
+export interface BackupRetentionDto {
+  readonly days: number;
+}
+
+export interface BackupIntervalDto {
+  readonly iso8601: string;
+  readonly seconds: number;
+}
+
+export interface BackupLastDto {
+  readonly lastSuccessfulBackupAgeSeconds: number;
+}
+
+export interface BackupServiceInfoDto {
+  readonly version: string;
+  readonly pgDumpVersion: string;
+  readonly retention: BackupRetentionDto;
+  readonly backupInterval: BackupIntervalDto;
+  readonly backup: BackupLastDto;
+}
+
+export interface BackupStatusDto {
+  readonly configured: boolean;
+  readonly healthy: boolean;
+  readonly info: BackupServiceInfoDto | null;
+}
+
+export interface BackupTriggerDto {
+  readonly jobId: string;
+  readonly alreadyRunning: boolean;
+}
+
+export interface BackupItemDto {
+  readonly id: string;
+  readonly createdAt: string;
+  readonly sizeBytes: number;
+  readonly sha256: string;
+  readonly pgVersion: string;
+  readonly durationMs: number;
+  readonly triggeredBy: string | null;
+}

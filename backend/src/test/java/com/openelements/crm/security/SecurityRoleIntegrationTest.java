@@ -280,6 +280,46 @@ class SecurityRoleIntegrationTest extends AbstractDbTest {
             .andExpect(status().isOk());
     }
 
+    // -- /api/admin/backup/* requires IT-ADMIN (spec 107) --
+
+    @Test
+    void backupStatusForbiddenForUserNone() throws Exception {
+        mockMvc.perform(withRoles(get("/api/admin/backup/status"), List.of()))
+            .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void backupStatusForbiddenForAdminOnly() throws Exception {
+        mockMvc.perform(withRoles(get("/api/admin/backup/status"), List.of(Roles.ROLE_APP_ADMIN)))
+            .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void backupStatusAllowedForItAdmin() throws Exception {
+        mockMvc.perform(withRoles(get("/api/admin/backup/status"), List.of(Roles.ROLE_IT_ADMIN)))
+            .andExpect(status().isOk());
+    }
+
+    @Test
+    void backupTriggerForbiddenForUserNone() throws Exception {
+        mockMvc.perform(withRoles(
+                org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post(
+                    "/api/admin/backup/trigger"), List.of()))
+            .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void backupListForbiddenForUserNone() throws Exception {
+        mockMvc.perform(withRoles(get("/api/admin/backup/backups"), List.of()))
+            .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void backupDownloadForbiddenForUserNone() throws Exception {
+        mockMvc.perform(withRoles(get("/api/admin/backup/backups/some-id/download"), List.of()))
+            .andExpect(status().isForbidden());
+    }
+
     /**
      * Performs the supplied MockMvc call. If it succeeds, asserts the status is
      * not 403. If it throws during servlet processing (business logic error),
