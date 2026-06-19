@@ -2,7 +2,7 @@
 
 ## GitHub Issue
 
-— (to be created; spec is the canonical reference until the issue exists)
+[#39 — Add CSV import for contacts](https://github.com/OpenElementsLabs/open-crm/issues/39)
 
 ## Summary
 
