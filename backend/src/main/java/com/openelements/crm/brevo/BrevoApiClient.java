@@ -1,16 +1,21 @@
 package com.openelements.crm.brevo;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import java.net.http.HttpClient;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 
 import com.openelements.spring.base.services.settings.SettingsDataService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.http.client.JdkClientHttpRequestFactory;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
@@ -27,6 +32,10 @@ public class BrevoApiClient {
     private static final String API_KEY_HEADER = "api-key";
     private static final long RATE_LIMIT_MS = 100;
     private static final int MAX_RETRIES = 3;
+    private static final Duration CONNECT_TIMEOUT = Duration.ofSeconds(10);
+    private static final Duration READ_TIMEOUT = Duration.ofSeconds(30);
+    private static final long MAX_RATE_LIMIT_WAIT_MS = 30_000L;
+    private static final int MAX_PAGES = 1_000;
 
     private final SettingsDataService settingsService;
     private final RestClient restClient;
@@ -39,8 +48,14 @@ public class BrevoApiClient {
      */
     public BrevoApiClient(final SettingsDataService settingsService) {
         this.settingsService = Objects.requireNonNull(settingsService, "settingsService must not be null");
+        final HttpClient httpClient = HttpClient.newBuilder()
+                .connectTimeout(CONNECT_TIMEOUT)
+                .build();
+        final JdkClientHttpRequestFactory requestFactory = new JdkClientHttpRequestFactory(httpClient);
+        requestFactory.setReadTimeout(READ_TIMEOUT);
         this.restClient = RestClient.builder()
                 .baseUrl("https://api.brevo.com/v3")
+                .requestFactory(requestFactory)
                 .build();
     }
 
@@ -73,22 +88,34 @@ public class BrevoApiClient {
     public List<BrevoCompany> fetchAllCompanies() {
         final String apiKey = getApiKey();
         final List<BrevoCompany> result = new ArrayList<>();
+        final Set<String> seenIds = new HashSet<>();
         final int limit = 50;
-        int offset = 0;
+        // Brevo /companies uses 1-indexed `page`, NOT `offset` like /contacts.
+        int page = 1;
+        int pageCount = 0;
         final long startNanos = System.nanoTime();
         LOG.info("Fetching companies from Brevo (page size {})", limit);
 
         while (true) {
+            if (++pageCount > MAX_PAGES) {
+                LOG.error("Aborting Brevo companies fetch: exceeded {} pages (page={}). "
+                        + "Likely API quirk returning duplicate pages.", MAX_PAGES, page);
+                throw new IllegalStateException("Brevo companies pagination exceeded "
+                        + MAX_PAGES + " pages");
+            }
             final JsonNode body = executeWithRetry(
-                    "/companies?limit=" + limit + "&offset=" + offset, apiKey);
+                    "/companies?limit=" + limit + "&page=" + page, apiKey);
             final JsonNode items = body.get("items");
             if (items == null || !items.isArray() || items.isEmpty()) {
                 break;
             }
-            LOG.info("Fetched Brevo companies page: offset={}, size={}, running total={}",
-                    offset, items.size(), result.size() + items.size());
+            int newInPage = 0;
             for (final JsonNode item : items) {
                 final String id = item.get("id").asText();
+                if (!seenIds.add(id)) {
+                    continue;
+                }
+                newInPage++;
                 final JsonNode attrs = item.get("attributes");
                 final String name = attrs != null && attrs.has("name")
                         ? attrs.get("name").asText(null) : null;
@@ -103,10 +130,17 @@ public class BrevoApiClient {
                 }
                 result.add(new BrevoCompany(id, name, domain, linkedContactsIds));
             }
+            LOG.info("Fetched Brevo companies page: page={}, size={}, new={}, running total={}",
+                    page, items.size(), newInPage, result.size());
+            if (newInPage == 0) {
+                LOG.warn("Brevo /companies returned only duplicate IDs at page={}, stopping pagination",
+                        page);
+                break;
+            }
             if (items.size() < limit) {
                 break;
             }
-            offset += limit;
+            page++;
         }
         LOG.info("Finished fetching {} companies from Brevo in {} ms",
                 result.size(), (System.nanoTime() - startNanos) / 1_000_000);
@@ -122,22 +156,33 @@ public class BrevoApiClient {
     public List<BrevoContact> fetchAllContacts() {
         final String apiKey = getApiKey();
         final List<BrevoContact> result = new ArrayList<>();
+        final Set<Long> seenIds = new HashSet<>();
         final int limit = 1000;
         int offset = 0;
+        int pageCount = 0;
         final long startNanos = System.nanoTime();
         LOG.info("Fetching contacts from Brevo (page size {})", limit);
 
         while (true) {
+            if (++pageCount > MAX_PAGES) {
+                LOG.error("Aborting Brevo contacts fetch: exceeded {} pages (offset={}). "
+                        + "Likely API quirk returning duplicate pages.", MAX_PAGES, offset);
+                throw new IllegalStateException("Brevo contacts pagination exceeded "
+                        + MAX_PAGES + " pages");
+            }
             final JsonNode body = executeWithRetry(
                     "/contacts?limit=" + limit + "&offset=" + offset, apiKey);
             final JsonNode contacts = body.get("contacts");
             if (contacts == null || !contacts.isArray() || contacts.isEmpty()) {
                 break;
             }
-            LOG.info("Fetched Brevo contacts page: offset={}, size={}, running total={}",
-                    offset, contacts.size(), result.size() + contacts.size());
+            int newInPage = 0;
             for (final JsonNode contact : contacts) {
                 final long id = contact.get("id").asLong();
+                if (!seenIds.add(id)) {
+                    continue;
+                }
+                newInPage++;
                 final String email = contact.has("email") ? contact.get("email").asText(null) : null;
                 final JsonNode attrsNode = contact.get("attributes");
                 final Map<String, Object> attributes;
@@ -149,6 +194,13 @@ public class BrevoApiClient {
                 }
                 final boolean emailBlacklisted = contact.has("emailBlacklisted") && contact.get("emailBlacklisted").asBoolean(false);
                 result.add(new BrevoContact(id, email, attributes, emailBlacklisted));
+            }
+            LOG.info("Fetched Brevo contacts page: offset={}, size={}, new={}, running total={}",
+                    offset, contacts.size(), newInPage, result.size());
+            if (newInPage == 0) {
+                LOG.warn("Brevo /contacts returned only duplicate IDs at offset={}, stopping pagination",
+                        offset);
+                break;
             }
             if (contacts.size() < limit) {
                 break;
@@ -187,6 +239,11 @@ public class BrevoApiClient {
                                 } catch (final NumberFormatException ignored) {
                                     // use default backoff
                                 }
+                            }
+                            if (waitMs > MAX_RATE_LIMIT_WAIT_MS) {
+                                LOG.warn("Brevo rate-limit reset of {}ms exceeds cap, capping at {}ms",
+                                        waitMs, MAX_RATE_LIMIT_WAIT_MS);
+                                waitMs = MAX_RATE_LIMIT_WAIT_MS;
                             }
                             throw new RateLimitException(waitMs);
                         })

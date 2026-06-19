@@ -13,7 +13,7 @@
             "name": "John Doe",
             "email": "john@open-elements.com",
             "picture": "https://open-elements.com/team/hendrik.jpg",
-            "roles": ["CRM-ADMIN"]
+            "roles": ["APP-ADMIN", "APP-USER", "IT-ADMIN"]
           }
         }
       ]
