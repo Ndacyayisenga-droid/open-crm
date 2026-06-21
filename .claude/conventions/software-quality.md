@@ -29,6 +29,15 @@
 - For Maven projects, use the [CycloneDX Maven Plugin](https://github.com/CycloneDX/cyclonedx-maven-plugin) (`org.cyclonedx:cyclonedx-maven-plugin`). Include it in the `<build><plugins>` section of the POM so that the SBOM is generated automatically during every build.
 - SBOMs should be uploaded to the Open Elements Dependency-Track instance for vulnerability tracking and compliance.
 
+## Testing
+
+- **IMPORTANT**: Every test must document what it verifies. State the behavior under test, not just the method name — a reader should understand the scenario and expected outcome without reading the test body. Use the language's idiomatic mechanism: Java `@DisplayName` (and Javadoc on the test class for the overall scope), TypeScript `describe`/`it` descriptions. A bare `testFoo()` with no description is not acceptable.
+- **IMPORTANT**: Every new feature must ship with automated tests. Backend code must reach **at least 80% test coverage**, frontend code **at least 70%**. Coverage is measured on the code added or changed by the feature, not only on the project total.
+- Measure coverage as part of the build (e.g., JaCoCo for Java, the test runner's `--coverage` for TypeScript) and fail the build when a feature drops below the threshold.
+- Coverage is a floor, not a goal — high coverage of meaningless assertions is worthless. Test real behavior, edge cases, and error paths, then ensure the floor is met.
+- **IMPORTANT**: Tests must be deterministic — the same code must always produce the same result, regardless of timing, execution order, machine speed, or external state. A test that passes or fails intermittently (a flaky test) is a defect and must be fixed, not retried.
+- **IMPORTANT**: Never "wait X seconds and hope" the work is done — fixed sleeps are a flaky-test anti-pattern. Wait for the actual condition instead: poll the observable state with a timeout (e.g., Awaitility in Java, `waitFor`/`vi.waitFor` in TypeScript), await the returned promise/future, use synchronization primitives (latches, callbacks), or inject a controllable clock so time is advanced explicitly.
+
 ## Continuous Integration
 
 - Use GitHub Actions to build and test code automatically.
