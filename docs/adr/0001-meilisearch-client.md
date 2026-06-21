@@ -5,7 +5,7 @@
 
 ## Context
 
-Spec [104 — Meilisearch global search](../../specs/104-meilisearch-global-search/design.md)
+Spec [104 — Meilisearch global search](../specs/104-meilisearch-global-search/design.md)
 introduces Meilisearch as the search backend for Open CRM. The backend needs an
 HTTP client to talk to the Meilisearch REST API (health checks, index
 management, document upserts, multi-search queries, scoped key minting, task
@@ -43,12 +43,12 @@ request and response payloads are JSON.
 
 Direct dependencies of `meilisearch-java:0.20.1`:
 
-| GAV | Scope | Note |
-|---|---|---|
+| GAV                                 | Scope   | Note                                            |
+|-------------------------------------|---------|-------------------------------------------------|
 | `com.squareup.okhttp3:okhttp:5.3.2` | compile | Second HTTP stack alongside Spring `RestClient` |
-| `com.google.code.gson:gson:2.13.2` | runtime | Second JSON library alongside Jackson |
-| `org.json:json:20251224` | runtime | Third JSON library |
-| `com.auth0:java-jwt:4.5.1` | runtime | For scoped-key tenant tokens |
+| `com.google.code.gson:gson:2.13.2`  | runtime | Second JSON library alongside Jackson           |
+| `org.json:json:20251224`            | runtime | Third JSON library                              |
+| `com.auth0:java-jwt:4.5.1`          | runtime | For scoped-key tenant tokens                    |
 
 Resolved transitive closure (new artifacts relative to the existing
 Spring Boot stack):
@@ -139,4 +139,5 @@ inline.
   `meilisearch/` GitHub org).
 
 [meilisearch-java]: https://github.com/meilisearch/meilisearch-java
+
 [java-conv]: ../../.claude/conventions/java.md
