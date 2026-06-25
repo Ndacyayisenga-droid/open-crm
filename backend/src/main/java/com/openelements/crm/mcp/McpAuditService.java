@@ -31,12 +31,9 @@ public class McpAuditService {
 
     private static final Logger log = LoggerFactory.getLogger(McpAuditService.class);
 
-    private final McpActorResolver actorResolver;
     private final AuditLogRepository auditLogRepository;
 
-    public McpAuditService(final McpActorResolver actorResolver,
-                           final AuditLogRepository auditLogRepository) {
-        this.actorResolver = Objects.requireNonNull(actorResolver, "actorResolver must not be null");
+    public McpAuditService(final AuditLogRepository auditLogRepository) {
         this.auditLogRepository = Objects.requireNonNull(auditLogRepository, "auditLogRepository must not be null");
     }
 
@@ -45,9 +42,9 @@ public class McpAuditService {
      *
      * @param toolName the MCP tool name (e.g. {@code "list_contacts"})
      * @param entityId the targeted entity id for {@code get_*} tools, or {@code null} for collections/search
+     * @param actor    the resolved actor (audit user + label)
      */
-    public void recordSuccess(final String toolName, final UUID entityId) {
-        final McpActor actor = actorResolver.resolve();
+    public void recordSuccess(final String toolName, final UUID entityId, final McpActor actor) {
         save(actor, entityId == null ? NO_ENTITY : entityId,
             toolName + " [" + actor.label() + "]", toolName);
     }
@@ -57,9 +54,9 @@ public class McpAuditService {
      *
      * @param toolName     the MCP tool name
      * @param errorSummary a short, non-sensitive failure summary (e.g. an exception class or "invalid argument")
+     * @param actor        the resolved actor (audit user + label)
      */
-    public void recordFailure(final String toolName, final String errorSummary) {
-        final McpActor actor = actorResolver.resolve();
+    public void recordFailure(final String toolName, final String errorSummary, final McpActor actor) {
         save(actor, NO_ENTITY,
             toolName + ": " + errorSummary + " [" + actor.label() + "]", toolName);
     }

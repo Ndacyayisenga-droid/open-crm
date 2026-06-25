@@ -1,11 +1,14 @@
 package com.openelements.crm.mcp;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.openelements.spring.base.services.apikey.ApiKeyDataService;
+import io.modelcontextprotocol.common.McpTransportContext;
 import io.modelcontextprotocol.json.jackson2.JacksonMcpJsonMapper;
 import io.modelcontextprotocol.server.McpServer;
 import io.modelcontextprotocol.server.McpSyncServer;
 import io.modelcontextprotocol.server.transport.WebMvcStreamableServerTransportProvider;
 import io.modelcontextprotocol.spec.McpSchema;
+import java.util.Map;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -34,10 +37,25 @@ public class McpServerConfig {
      * wrapped as the SDK's {@code McpJsonMapper}.
      */
     @Bean
-    public WebMvcStreamableServerTransportProvider mcpTransportProvider(final ObjectMapper objectMapper) {
+    public WebMvcStreamableServerTransportProvider mcpTransportProvider(
+        final ObjectMapper objectMapper, final ApiKeyDataService apiKeyDataService) {
         return WebMvcStreamableServerTransportProvider.builder()
             .jsonMapper(new JacksonMcpJsonMapper(objectMapper))
             .mcpEndpoint(MCP_ENDPOINT)
+            // Capture the authenticated actor label on the request thread (where
+            // the X-API-Key header is available) and pass it through the MCP
+            // transport context — the tool handler may run on a different thread
+            // without the Spring SecurityContext.
+            .contextExtractor(request -> {
+                final String apiKey = request.headers().firstHeader("X-API-Key");
+                if (apiKey == null) {
+                    return McpTransportContext.EMPTY;
+                }
+                return apiKeyDataService.authenticate(apiKey)
+                    .map(entity -> McpTransportContext.create(
+                        Map.of(McpActorResolver.ACTOR_LABEL_KEY, "apikey:" + entity.getName())))
+                    .orElse(McpTransportContext.EMPTY);
+            })
             .build();
     }
 

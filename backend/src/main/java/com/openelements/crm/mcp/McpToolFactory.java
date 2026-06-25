@@ -37,6 +37,7 @@ public class McpToolFactory {
     private final CrmSearchService searchService;
     private final McpPaging paging;
     private final McpAuditService audit;
+    private final McpActorResolver actorResolver;
     private final ObjectMapper objectMapper;
 
     public McpToolFactory(final ContactService contactService,
@@ -45,6 +46,7 @@ public class McpToolFactory {
                           final CrmSearchService searchService,
                           final McpPaging paging,
                           final McpAuditService audit,
+                          final McpActorResolver actorResolver,
                           final ObjectMapper objectMapper) {
         this.contactService = Objects.requireNonNull(contactService);
         this.companyService = Objects.requireNonNull(companyService);
@@ -52,6 +54,7 @@ public class McpToolFactory {
         this.searchService = Objects.requireNonNull(searchService);
         this.paging = Objects.requireNonNull(paging);
         this.audit = Objects.requireNonNull(audit);
+        this.actorResolver = Objects.requireNonNull(actorResolver);
         this.objectMapper = Objects.requireNonNull(objectMapper);
     }
 
@@ -191,27 +194,28 @@ public class McpToolFactory {
     }
 
     private SyncToolSpecification spec(final McpSchema.Tool tool, final ToolLogic logic) {
-        return new SyncToolSpecification(tool, (exchange, args) -> invoke(tool.name(), logic, args));
+        return new SyncToolSpecification(tool,
+            (exchange, args) -> invoke(tool.name(), logic, args, actorResolver.resolve(exchange.transportContext())));
     }
 
     private McpSchema.CallToolResult invoke(final String name, final ToolLogic logic,
-                                            final Map<String, Object> rawArgs) {
+                                            final Map<String, Object> rawArgs, final McpActor actor) {
         final Map<String, Object> args = rawArgs == null ? Map.of() : rawArgs;
         try {
             final Object payload = logic.run(args);
-            audit.recordSuccess(name, null);
+            audit.recordSuccess(name, null, actor);
             return new McpSchema.CallToolResult(json(payload), false);
         } catch (final IllegalArgumentException e) {
-            audit.recordFailure(name, "invalid argument");
+            audit.recordFailure(name, "invalid argument", actor);
             return new McpSchema.CallToolResult("Invalid argument: " + e.getMessage(), true);
         } catch (final NoSuchElementException e) {
-            audit.recordFailure(name, "not found");
+            audit.recordFailure(name, "not found", actor);
             return new McpSchema.CallToolResult(e.getMessage(), true);
         } catch (final McpUnavailableException e) {
-            audit.recordFailure(name, "unavailable");
+            audit.recordFailure(name, "unavailable", actor);
             return new McpSchema.CallToolResult(e.getMessage(), true);
         } catch (final Exception e) {
-            audit.recordFailure(name, e.getClass().getSimpleName());
+            audit.recordFailure(name, e.getClass().getSimpleName(), actor);
             return new McpSchema.CallToolResult("Internal error executing tool " + name, true);
         }
     }

@@ -4,6 +4,7 @@ import com.openelements.spring.base.services.apikey.ApiKeyEntity;
 import com.openelements.spring.base.services.user.SystemUser;
 import com.openelements.spring.base.services.user.UserEntity;
 import com.openelements.spring.base.services.user.UserRepository;
+import io.modelcontextprotocol.common.McpTransportContext;
 import java.util.Objects;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -20,6 +21,11 @@ import org.springframework.stereotype.Component;
 @Component
 public class McpActorResolver {
 
+    /** Key under which the actor label is stored in the {@link McpTransportContext}. */
+    public static final String ACTOR_LABEL_KEY = "mcp.actor.label";
+
+    private static final String UNKNOWN_LABEL = "unknown";
+
     private final UserRepository userRepository;
 
     public McpActorResolver(final UserRepository userRepository) {
@@ -27,25 +33,41 @@ public class McpActorResolver {
     }
 
     /**
-     * Resolves the actor for the current security context.
+     * Resolves the actor from the MCP transport context (the canonical path for
+     * tool calls). The actor label is captured on the request thread by the
+     * transport's context extractor (see {@code McpServerConfig}) because the
+     * tool handler may run on a thread without the security context.
      *
+     * @param context the transport context for the current tool call (may be {@code null})
      * @return the resolved {@link McpActor}
      * @throws IllegalStateException if the SYSTEM user is not provisioned (it backs the audit FK)
      */
-    public McpActor resolve() {
-        final UserEntity systemUser = userRepository.findBySub(SystemUser.SUB)
-            .orElseThrow(() -> new IllegalStateException(
-                "SYSTEM user (" + SystemUser.SUB + ") is not provisioned; required for MCP audit attribution"));
+    public McpActor resolve(final McpTransportContext context) {
+        final Object label = context == null ? null : context.get(ACTOR_LABEL_KEY);
+        return new McpActor(systemUser(), label != null ? label.toString() : UNKNOWN_LABEL);
+    }
 
+    /**
+     * Resolves the actor from the current thread's security context. Used as a
+     * fallback and in unit tests where the principal is set directly.
+     *
+     * @return the resolved {@link McpActor}
+     * @throws IllegalStateException if the SYSTEM user is not provisioned
+     */
+    public McpActor resolve() {
         final Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         final String label;
         if (authentication != null && authentication.getPrincipal() instanceof ApiKeyEntity apiKey) {
             label = "apikey:" + apiKey.getName();
         } else {
-            // Phase 1 only authenticates via API key on /mcp; any other principal
-            // is unexpected here. Phase 2 adds the JWT branch.
-            label = "unknown";
+            label = UNKNOWN_LABEL;
         }
-        return new McpActor(systemUser, label);
+        return new McpActor(systemUser(), label);
+    }
+
+    private UserEntity systemUser() {
+        return userRepository.findBySub(SystemUser.SUB)
+            .orElseThrow(() -> new IllegalStateException(
+                "SYSTEM user (" + SystemUser.SUB + ") is not provisioned; required for MCP audit attribution"));
     }
 }

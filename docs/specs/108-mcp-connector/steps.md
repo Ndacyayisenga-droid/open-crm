@@ -98,17 +98,17 @@ Backend module: `backend/` (Spring Boot 3.5, Java 21). New code under `com.opene
 
 ---
 
-## Step 7: Integration tests
+## Step 7: Integration tests ✅
 
-- [ ] `McpAuthIntegrationTest` — 401 without/invalid key, 200 with key, CSRF-free POST, master switch 404.
-- [ ] `McpToolsIntegrationTest` — `tools/list` catalog; happy paths for each tool; compound filters; unknown-id error; search grouped + bootstrap error.
-- [ ] `McpPaginationIntegrationTest` — default size, clamp, reject `size<=0`, last page, out-of-range page, envelope fields.
-- [ ] `McpAuditIntegrationTest` — success + failure audit rows attributed to SYSTEM + key name; no row when unauthenticated.
-- [ ] Reuse `AbstractDbTest` (Testcontainers Postgres); seed an API key + sample data; drive `POST /mcp` with JSON-RPC bodies via `MockMvc`.
+- [x] `McpSecurityIntegrationTest` — 401 without/invalid key, valid key passes, CSRF-free POST (step 2).
+- [x] `McpEndpointIntegrationTest` — real MCP Streamable-HTTP client (auth via `X-API-Key` customizer) on `RANDOM_PORT`: `tools/list` catalog (9), `list_contacts` envelope, size clamp, `get_contact` happy + unknown-id error, invalid `size` error, empty comments envelope, audit-by-key end-to-end.
+- [x] `McpAuditIntegrationTest` — success + failure audit rows attributed to SYSTEM + key name (step 3).
+- [x] `McpServerWiringTest` / `McpDisabledTest` — bean wiring when enabled / bean absence when disabled (master switch).
+- [x] During this step: discovered the tool handler runs off the servlet thread, so the actor label is now captured on the request thread via the transport `contextExtractor` and read from `exchange.transportContext()`.
 
 **Acceptance criteria:**
-- [ ] All Phase 1 behavior scenarios have a corresponding test and pass.
-- [ ] Backend coverage stays ≥ 80%.
+- [x] All Phase 1 behavior scenarios covered; full MCP suite green (24 tests).
+- [ ] Backend coverage ≥ 80% — confirmed in the quality-review pass.
 
 **Related behaviors:** all Phase 1 scenarios.
 

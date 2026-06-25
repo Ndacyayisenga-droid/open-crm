@@ -56,7 +56,7 @@ class McpAuditIntegrationTest extends AbstractDbTest {
 
     @Test
     void recordSuccessWritesOneMcpAuditRow() {
-        auditService.recordSuccess("list_contacts", null);
+        auditService.recordSuccess("list_contacts", null, actorResolver.resolve());
 
         assertEquals(1, mcpAuditCount());
         assertEquals("list_contacts [apikey:onyx-test]", lastMcpAuditName());
@@ -67,7 +67,7 @@ class McpAuditIntegrationTest extends AbstractDbTest {
 
     @Test
     void recordFailureEncodesToolAndError() {
-        auditService.recordFailure("get_contact", "invalid argument");
+        auditService.recordFailure("get_contact", "invalid argument", actorResolver.resolve());
 
         assertEquals(1, mcpAuditCount());
         assertEquals("get_contact: invalid argument [apikey:onyx-test]", lastMcpAuditName());

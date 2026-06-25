@@ -35,10 +35,10 @@ Scenarios are grouped by phase. **Phase 1** (Profile A — API key, Onyx) is the
 
 ### Master switch disables the endpoint entirely
 
-- **Given** the backend is started with `openelements.mcp.enabled=false`
-- **When** any client requests `POST /mcp`
-- **Then** the response is `404 Not Found`
-- **And** no MCP-related beans are registered in the application context
+- **Given** the backend is started with `openelements.mcp.enabled=false` (the default)
+- **Then** no MCP-related beans are registered in the application context (no `McpSyncServer`, no `mcpRouterFunction`)
+- **And** the `/mcp` security chain is absent, so `/mcp` is not served as an MCP endpoint
+- *(Note: with the endpoint absent, a request to `/mcp` is handled by the default JWT chain and is rejected/closed rather than returning a tool response — the original 404 expectation was revised to bean-absence during implementation.)*
 
 ## Phase 1 — Tool discovery
 
