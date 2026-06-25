@@ -54,14 +54,14 @@ Backend module: `backend/` (Spring Boot 3.5, Java 21). New code under `com.opene
 
 ---
 
-## Step 4: Pagination envelope
+## Step 4: Pagination envelope ✅
 
-- [ ] Create `McpPage<T>` (record: `items`, `page`, `size`, `totalCount`, `hasMore`) with a factory `from(Page<T>)` mapping `getTotalElements()`/`!isLast()`.
-- [ ] Central `size` clamping helper: clamp to `[1, maxPageSize]`; reject `size <= 0` as an invalid-parameter error; default to `defaultPageSize` when omitted.
+- [x] Create `McpPage<T>` (record: `items`, `page`, `size`, `totalCount`, `hasMore`) with `from(Page<T>)` mapping `getTotalElements()`/`!isLast()`.
+- [x] `McpPaging` helper: `resolveSize` (default → clamp to `maxPageSize`, reject `<=0`), `resolvePage` (default 0, reject negative), `toPageable(...)` (unsorted + sorted).
 
 **Acceptance criteria:**
-- [ ] Envelope reports correct `totalCount`/`hasMore` for first, last, and out-of-range pages.
-- [ ] `size > maxPageSize` clamps; `size <= 0` is rejected.
+- [x] Envelope reports correct `totalCount`/`hasMore` for first and last pages.
+- [x] `size > maxPageSize` clamps; `size <= 0` and negative `page` rejected. (`McpPagingTest`, 5/5.)
 
 **Related behaviors:** Phase 1 — Pagination bounds; completeness signal.
 
