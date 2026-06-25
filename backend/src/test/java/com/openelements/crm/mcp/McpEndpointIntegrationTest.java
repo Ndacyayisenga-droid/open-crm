@@ -124,6 +124,11 @@ class McpEndpointIntegrationTest extends AbstractDbTest {
             final JsonNode json = callOk(client, "get_contact", Map.of("id", contactId.toString()));
             assertEquals("Erika", json.get("firstName").asText());
         }
+        // get_* audit rows carry the real entity id (not the nil sentinel).
+        final UUID auditedEntityId = jdbcTemplate.queryForObject(
+            "SELECT entity_id FROM audit_log WHERE entity_type = 'MCP' AND entity_name LIKE 'get_contact %'",
+            UUID.class);
+        assertEquals(contactId, auditedEntityId);
     }
 
     @Test

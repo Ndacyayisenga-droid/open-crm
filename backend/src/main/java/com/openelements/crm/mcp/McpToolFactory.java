@@ -15,6 +15,7 @@ import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Objects;
 import java.util.UUID;
+import java.util.function.Function;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Component;
 
@@ -115,7 +116,7 @@ public class McpToolFactory {
             final UUID id = requiredUuid(args, "id");
             return companyService.findById(id)
                 .orElseThrow(() -> new NoSuchElementException("Company not found: " + id));
-        });
+        }, args -> uuid(args, "id"));
     }
 
     private SyncToolSpecification listContactsTool() {
@@ -142,7 +143,7 @@ public class McpToolFactory {
             final UUID id = requiredUuid(args, "id");
             return contactService.findById(id)
                 .orElseThrow(() -> new NoSuchElementException("Contact not found: " + id));
-        });
+        }, args -> uuid(args, "id"));
     }
 
     private SyncToolSpecification listTagsTool() {
@@ -161,7 +162,7 @@ public class McpToolFactory {
             final UUID id = requiredUuid(args, "id");
             return tagService.findById(id)
                 .orElseThrow(() -> new NoSuchElementException("Tag not found: " + id));
-        });
+        }, args -> uuid(args, "id"));
     }
 
     private SyncToolSpecification listCompanyCommentsTool() {
@@ -194,16 +195,29 @@ public class McpToolFactory {
     }
 
     private SyncToolSpecification spec(final McpSchema.Tool tool, final ToolLogic logic) {
-        return new SyncToolSpecification(tool,
-            (exchange, args) -> invoke(tool.name(), logic, args, actorResolver.resolve(exchange.transportContext())));
+        return spec(tool, logic, null);
+    }
+
+    /**
+     * @param entityIdExtractor extracts the targeted entity id from the (already validated)
+     *                          arguments for single-entity {@code get_*} tools, so the audit
+     *                          entry records which record was read; {@code null} for
+     *                          collection/search tools (which audit the nil sentinel)
+     */
+    private SyncToolSpecification spec(final McpSchema.Tool tool, final ToolLogic logic,
+                                       final Function<Map<String, Object>, UUID> entityIdExtractor) {
+        return new SyncToolSpecification(tool, (exchange, args) ->
+            invoke(tool.name(), logic, entityIdExtractor, args, actorResolver.resolve(exchange.transportContext())));
     }
 
     private McpSchema.CallToolResult invoke(final String name, final ToolLogic logic,
+                                            final Function<Map<String, Object>, UUID> entityIdExtractor,
                                             final Map<String, Object> rawArgs, final McpActor actor) {
         final Map<String, Object> args = rawArgs == null ? Map.of() : rawArgs;
         try {
             final Object payload = logic.run(args);
-            audit.recordSuccess(name, null, actor);
+            final UUID entityId = entityIdExtractor == null ? null : entityIdExtractor.apply(args);
+            audit.recordSuccess(name, entityId, actor);
             return new McpSchema.CallToolResult(json(payload), false);
         } catch (final IllegalArgumentException e) {
             audit.recordFailure(name, "invalid argument", actor);
