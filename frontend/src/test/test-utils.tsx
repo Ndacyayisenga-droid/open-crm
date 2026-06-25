@@ -7,7 +7,7 @@ import { translations } from "@/lib/i18n";
 import type { Session } from "next-auth";
 
 /**
- * Default test session. Includes both ADMIN and IT-ADMIN so that existing
+ * Default test session. Includes APP-ADMIN and IT-ADMIN so that existing
  * component tests (which verify UI states that require these roles, e.g.
  * clickable delete buttons and visible admin menu) keep working.
  * Pass a custom `session` to override for role-specific tests.
@@ -15,7 +15,7 @@ import type { Session } from "next-auth";
 const defaultSession: Session = {
   user: { name: "Test User", email: "test@example.com", image: null },
   expires: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
-  roles: ["ADMIN", "IT-ADMIN"],
+  roles: ["APP-ADMIN", "IT-ADMIN"],
 };
 
 interface TestRenderOptions extends Omit<RenderOptions, "wrapper"> {
