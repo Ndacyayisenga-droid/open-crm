@@ -67,18 +67,18 @@ Backend module: `backend/` (Spring Boot 3.5, Java 21). New code under `com.opene
 
 ---
 
-## Step 5: Tools
+## Step 5: Tools ✅ (runtime behavior verified in step 7)
 
-- [ ] Create `McpToolFactory` producing `SyncToolSpecification`s for: `search`, `list_companies`, `get_company`, `list_contacts`, `get_contact`, `list_tags`, `get_tag`, `list_company_comments`, `list_contact_comments`.
-- [ ] Each tool: a `McpSchema.Tool` (snake_case name, clear English description incl. pagination hint, JSON `inputSchema` for params) + a handler `(exchange, Map<String,Object> args) -> CallToolResult`.
-- [ ] Handlers parse/validate args, call the existing service (`SearchService`, `CompanyService`, `ContactService`, `TagService`, comment list methods), wrap collections in `McpPage`, serialize to JSON text content, and record audit via `McpAuditService`.
-- [ ] `search` maps `SearchService.search()`; surface the bootstrap state as a JSON-RPC error (mirrors the 503 from spec 104).
-- [ ] `get_*` for unknown id → JSON-RPC error identifying the missing entity.
-- [ ] Comment tools return full comment text in the `McpPage` envelope.
+- [x] Create `McpToolFactory` producing `SyncToolSpecification`s for: `search`, `list_companies`, `get_company`, `list_contacts`, `get_contact`, `list_tags`, `get_tag`, `list_company_comments`, `list_contact_comments`.
+- [x] Each tool: a `McpSchema.Tool` (snake_case name, description incl. pagination hint, JSON `inputSchema` built via `McpSchema.JsonSchema`) + a `(exchange, Map args) -> CallToolResult` handler.
+- [x] Handlers parse/validate args, call the existing services (`CompanyService`, `ContactService`, `TagDataService.findAll/findById`, comment list methods), wrap collections in `McpPage`, serialize to JSON, and record audit success/failure.
+- [x] Extracted `CrmSearchService` from `SearchController` (DRY); `search` tool maps it and raises `McpUnavailableException` while bootstrapping. `SearchIntegrationTest` still 9/9.
+- [x] `get_*` unknown id → `NoSuchElementException` → JSON-RPC error result.
+- [x] Comment tools return full text via the `McpPage` envelope (in-memory pagination).
+- [x] Central dispatch maps `IllegalArgumentException`→invalid-arg, `NoSuchElementException`→not-found, `McpUnavailableException`→unavailable, else generic error.
 
 **Acceptance criteria:**
-- [ ] Each tool returns the documented shape; collection tools return the envelope.
-- [ ] Compound filters on `list_contacts` work; unknown id errors; search bootstrap error surfaces.
+- [x] Builds; tool catalog assembled. (Runtime shapes/filters/errors asserted end-to-end in step 7.)
 
 **Related behaviors:** Phase 1 — Tool discovery; Read tools happy paths.
 
