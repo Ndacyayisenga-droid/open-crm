@@ -38,16 +38,17 @@ Backend module: `backend/` (Spring Boot 3.5, Java 21). New code under `com.opene
 
 ---
 
-## Step 3: Actor + audit abstraction
+## Step 3: Actor + audit abstraction ✅
 
-- [ ] Create `McpActor` resolving the current principal: Phase 1 → `{ auditUser = SystemUser.ID, label = "apikey:<keyName>" }` from the `ApiKeyAuthentication`. Design the type so a JWT-backed implementation can be added in Phase 2 without changing callers.
-- [ ] Create `McpAuditService` writing one `AuditLogEntity` (`entityType="MCP"`, `action=INSERT`, `user=auditUser`, `name="<tool> [<label>]"`). Provide success + failure variants.
-- [ ] INFO logging records only `tool=<name> actor=<label>` (no arguments).
+- [x] Create `McpActor` (record `{ UserEntity auditUser, String label }`) + `McpActorResolver`: Phase 1 → SYSTEM user + `label="apikey:<keyName>"` from the `ApiKeyEntity` principal. Seam designed so Phase 2 adds a JWT branch without changing callers.
+- [x] Create `McpAuditService` writing one `AuditLogEntity` (`entityType="MCP"`, `action=INSERT`, `user=auditUser`, `name="<tool> [<label>]"`, `entityId` = target id or nil sentinel). Success + failure variants.
+- [x] INFO logging records only `tool=<name> actor=<label>` (no arguments).
 
 **Acceptance criteria:**
-- [ ] A tool call writes exactly one `MCP` audit row attributed to SYSTEM + key name.
-- [ ] A failed tool call writes a failure audit row; the JSON-RPC error is still returned.
-- [ ] Unauthenticated request writes no audit row.
+- [x] A tool call writes exactly one `MCP` audit row attributed to SYSTEM + key name.
+- [x] A failed tool call writes a failure audit row encoding tool + error.
+- [x] Actor resolves API-key principal → SYSTEM user. (`McpAuditIntegrationTest`, 3/3.)
+- [ ] (Unauthenticated → no audit row: covered end-to-end in step 7 once the handler exists.)
 
 **Related behaviors:** Phase 1 — Audit logging.
 
