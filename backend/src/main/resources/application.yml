@@ -35,3 +35,18 @@ openelements:
     master-key: ${MEILI_MASTER_KEY:local-dev-master-key}
     index-prefix: ${MEILI_INDEX_PREFIX:crm_}
     request-timeout: 5s
+  mcp:
+    # Master switch for the MCP server (spec 108). Off by default: enabling it
+    # exposes personal CRM data to external MCP clients and grants every existing
+    # API key full read access. Turn on deliberately per environment, after the
+    # Phase-1 GDPR checklist is satisfied. See docs/specs/108-mcp-connector/.
+    enabled: ${MCP_ENABLED:false}
+    server-name: "Open CRM"
+    server-version: "0.1.0"
+    default-page-size: 20
+    max-page-size: 50
+    auth:
+      api-key:
+        enabled: ${MCP_AUTH_API_KEY_ENABLED:true}   # Phase 1 — Onyx via X-API-Key
+      oidc:
+        enabled: ${MCP_AUTH_OIDC_ENABLED:false}      # Phase 2 — Claude via Authentik OIDC

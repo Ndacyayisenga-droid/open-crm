@@ -1,4 +1,4 @@
-# Design: MCP Connector for Open CRM
+# Design: MCP Server for Open CRM (client-agnostic)
 
 ## GitHub Issue
 
@@ -6,253 +6,250 @@
 
 ## Summary
 
-Open CRM exposes a new **Model Context Protocol (MCP) HTTP endpoint** so that Anthropic's Claude can be configured to talk to the CRM as a "Custom Connector". Employees who already log in to Claude via the company's Authentik SSO can then ask Claude to look up companies, contacts, tasks, tags, comments, and run a global search against their CRM — without leaving the chat.
+Open CRM exposes a new **read-only Model Context Protocol (MCP) HTTP endpoint** under `/mcp`, built on the official Java MCP SDK with the **Streamable HTTP** transport. The endpoint is **client-agnostic** — any compliant MCP client can connect — and the tool catalog covers the natural read use cases over companies, contacts, tags, and comments, plus a global search.
 
-Authentication is delegated to the existing Authentik OIDC infrastructure via a **second, dedicated OAuth client** named `open-crm-mcp`. Each MCP call carries the employee's personal JWT, so the existing role-based access control, audit log, and user-entity model continue to apply naturally. The first release is **read-only**; write tools (create comment, create task, set tag) are an explicit follow-up.
+Because the protocol surface is identical for every client, the only thing that differs per client is **authentication**. The design therefore defines two **auth profiles** behind one shared MCP/tool/audit core, and ships them in two phases:
+
+- **Phase 1 — Profile A (API key):** a self-hosted, EU-hosted **Onyx AI** instance connects to `/mcp` using the existing CRM API-key scheme (`X-API-Key`). This is the immediate driver and the smallest viable slice.
+- **Phase 2 — Profile B (per-user OIDC):** **Anthropic Claude** connects as a "Custom Connector", authenticating each employee through the existing Authentik SSO via a dedicated `open-crm-mcp` OAuth client, so RBAC and per-user audit attribution apply end-to-end.
+
+The first release is **read-only**; write tools are an explicit follow-up. Phase 2 is additive: it adds an auth profile and a per-user actor resolution on top of the Phase 1 core, without restructuring the tool layer, transport, or audit model.
 
 ## Goals
 
-- Let employees consume CRM data inside Claude conversations via a properly registered MCP server.
-- Reuse the existing Authentik OIDC infrastructure — no new authentication scheme.
-- Preserve per-user identity end-to-end: the JWT that arrives at the MCP endpoint is the employee's own, so audit log entries and RBAC decisions remain meaningful.
-- Ship a small, well-scoped tool catalog that covers the natural read use cases: list, get, search, comments.
-- Keep the implementation strictly additive — no changes to existing REST controllers, services, or security configuration beyond a new endpoint and a new OAuth client registration.
+- Expose CRM data to MCP clients (Onyx now, Claude later) through a properly implemented, read-only MCP server.
+- Keep the MCP/tool/transport/audit core **client-agnostic**; isolate per-client differences to a pluggable auth profile.
+- Phase 1: let a self-hosted EU Onyx consume CRM data with the **existing** API-key infrastructure — no new auth scheme, minimal new code.
+- Phase 2: preserve per-user identity end-to-end for Claude via Authentik OIDC, so audit and RBAC are meaningful per employee.
+- Ship a small, well-scoped tool catalog: search, list, get, comments over companies/contacts/tags/comments.
+- Be strictly additive to the existing backend — a new endpoint, a new security chain for `/mcp/**`, and a thin tool adapter over existing services.
 
 ## Non-goals
 
-- **Write operations.** Creating, updating, or deleting CRM entities through Claude is explicitly out of scope for v1. The architecture must allow these to be added later without restructuring auth, audit, or transport.
-- **Exposing administrative resources via MCP.** API keys, webhooks, and the audit log itself are not part of the tool catalog.
-- **A new authentication scheme.** No new shared "MCP service account", no new password-based auth, no new internal token format. Authentik remains the single source of identity.
-- **Strict `aud` validation** on the MCP endpoint. Today the resource server only validates the signature; tightening to enforce `aud=open-crm-mcp` is intentionally deferred (see `TODO.md` § "Strikte Audience-Prüfung für JWT-Validierung").
-- **Rate limiting** beyond whatever the existing infrastructure already provides.
+- **Write operations.** Creating, updating, or deleting CRM entities through MCP is out of scope for v1. The architecture must allow adding them later without restructuring auth, audit, or transport.
+- **Tasks and Users tools in Phase 1.** The Onyx scope is companies, contacts, tags, comments. `list_tasks`/`get_task` and a reduced `list_users` projection are **deferred** to a later increment (the original design is retained below under *Deferred tool catalog* so it is not lost).
+- **Per-request scoping / rate limiting on `/mcp`.** API keys have no scopes today; both scoping and rate limiting arrive with the planned future API-key capability (see *Dependencies* and *Open questions*). Phase 1 relies on the page-size cap only.
+- **Exposing administrative resources** (API keys, webhooks, audit log) via MCP.
+- **A dedicated frontend UI.** The connector is configured inside the MCP client (Onyx admin panel / Claude connector dialog).
 - **MCP "Resources"** (`crm://...` URIs). The tool model is sufficient for v1.
-- **Internationalization of tool responses.** Tool names and descriptions are English; response payloads carry data as stored.
-- **A dedicated frontend UI.** No CRM page is added; the connector is configured inside Claude.
+- **Internationalization of tool responses.** Tool names/descriptions are English; payloads carry data as stored.
+- **Strict `aud` validation** on the OIDC profile (Phase 2) — deferred (see TODO.md § "Strikte Audience-Prüfung für JWT-Validierung").
 
-## Pre-production checklist (GDPR / DSGVO)
+## Phasing
 
-Sending personal CRM data (names, e-mail addresses, postal addresses, phone numbers, birthdays, free-text comments) to Anthropic makes Anthropic a processor under Art. 28 GDPR. The technical work in this spec produces a feature that **must not be enabled in production until** the following organizational steps are complete. Each item is the responsibility of the legal / data-protection track, not of this spec.
+```mermaid
+flowchart LR
+    Core["MCP core<br/>(SDK + Streamable HTTP,<br/>tools, audit, data minimization)"]
+    A["Profile A — API key<br/>(Onyx, self-hosted EU)"]
+    B["Profile B — per-user OIDC<br/>(Claude via Authentik)"]
+    Core --> A
+    Core -.Phase 2.-> B
+    A -. "actor abstraction<br/>extended, not rewritten" .-> B
+```
 
-1. **Data Processing Addendum (DPA) signed with Anthropic.** Anthropic publishes a standard DPA; Claude Enterprise customers usually sign it as part of onboarding.
-2. **Zero Data Retention confirmed in writing.** The Anthropic plan in use must guarantee that conversation data (and therefore CRM data flowing through MCP) is not retained for training or for general retention beyond the request lifecycle.
-3. **Legal basis documented.** Typically Art. 6 (1) lit. f GDPR ("legitimate interest" — internal CRM use) with a documented balancing test; for prospect / customer data also lit. b ("contract performance / preparation").
-4. **Data Protection Impact Assessment (DPIA / DSFA) performed.** Required for systematic automated processing of personal data by a third-country processor (USA). The DPIA must reference Anthropic's EU-US Data Privacy Framework certification as the transfer mechanism, or alternatively Standard Contractual Clauses.
-5. **Privacy notice updated.** Both the public-facing privacy policy and the internal employee notice must mention that CRM data may be transmitted to Anthropic (USA) on request.
-6. **Works council agreement (if applicable).** Employees authenticate with their personal account and the audit log records every MCP call. This is monitoring of employee activity in the same sense as the existing "Updates view" GDPR todo and may require a `Betriebsvereinbarung`.
-
-In addition, the technical design follows **data minimization**:
-
-- The reduced Users tool only returns `id` and `displayName`, never e-mail or avatar.
-- Pagination caps at 50 records per call.
-- Administrative entities (API keys, webhooks, audit log) are never exposed.
-
-This checklist is reproduced in `behaviors.md` as a "production readiness" check.
+Phase 1 delivers the core + Profile A. Phase 2 adds Profile B. The seam between them is the **actor label** (see *Access logging*): Phase 1 derives an `apikey:<name>` label from the API key; Phase 2 additionally derives a per-user label/identity from the JWT subject. No Phase-1 code is rewritten for Phase 2.
 
 ## Technical approach
 
 ### Building blocks
 
-- **MCP server runtime:** the official Java MCP SDK, integrated via the dedicated Spring WebMVC starter `io.modelcontextprotocol:sdk-spring-webmvc` (Maven coordinates exact name is verified during implementation). The SDK provides:
-  - Tool registration via annotated beans.
-  - Built-in support for the **Streamable HTTP** transport (the current MCP spec, what Claude speaks).
-  - JSON-RPC framing, schema generation from Java types, and error mapping.
-- **Authentication:** the existing Spring Security `oauth2-resource-server` configuration. The MCP endpoint is mounted under `/mcp/**` and is included in the existing security chain — JWTs issued by Authentik are validated by the same JWKS as `/api/**`. No new filter, no new principal type.
-- **Authorization:** the existing role mapping (`roles` claim → `ROLE_*` authorities). Tool methods that need a specific role use `@PreAuthorize`. For v1, all read tools are open to any authenticated user (matches the existing read-policy on `/api/**`).
-- **User entity:** the existing `UserService` is invoked on every tool call to resolve the JWT's `sub` to a `UserEntity`, auto-creating it on first use (same path as the frontend login in spec 065).
-- **Audit logging:** every tool call produces one `AuditLogEntity` with `entityType = "MCP"`, `action = INSERT`, `name = <tool-name>`, `user = <current user>`. This is performed in a single `McpAuditInterceptor`-style component invoked from the tool handler.
-- **Read backend:** existing services (`CompanyService`, `ContactService`, `TaskService`, `TagService`, `CommentService`, `SearchService`, `UserService`) are reused as-is. The MCP layer is a thin adapter — it does not duplicate filtering or query logic.
+- **MCP server runtime:** the **official Java MCP SDK** — `io.modelcontextprotocol.sdk:mcp` plus the Spring WebMVC transport `io.modelcontextprotocol.sdk:mcp-spring-webmvc`. It provides JSON-RPC framing, schema generation, the **Streamable HTTP** transport, and programmatic tool registration (via the SDK's tool-specification builders). The version is pinned (the SDK is young — see *Open questions*).
+  - **Rationale (Spring AI rejected):** the Spring AI MCP starter wraps the *same* official SDK but transitively pulls ~12–15 MCP-irrelevant jars (StringTemplate/ANTLR prompt templating, a `victools` JSON-schema-generator stack, the `jtokkit` LLM tokenizer, and an outdated `javax.validation:validation-api:1.1.0` that risks clashing with the project's Jakarta validation). The only upside is `@McpTool` annotation sugar. The official SDK keeps the footprint to the two MCP jars + `reactor-core` + Jackson (already present). Measured during this spec's grill session.
+- **Transport:** Streamable HTTP. Stateful vs. stateless mode and exact interop with Onyx's MCP client are verified at implementation time (see *Open questions*).
+- **Read backend:** existing services (`CompanyService`, `ContactService`, `TagService`, `CommentService`, `SearchService`) are reused as-is. The MCP layer is a thin adapter — it does not duplicate filtering or query logic.
+- **Tool dispatch:** each tool method calls the backing service, emits one structured access log line (`tool=… actor=…`), and returns the mapped payload (or a mapped JSON-RPC error).
 
-### OAuth integration with Authentik
+### Auth profiles
 
-```mermaid
-sequenceDiagram
-    participant U as Employee
-    participant C as Claude
-    participant M as Open CRM MCP
-    participant A as Authentik
+The `/mcp/**` path gets its **own** `SecurityFilterChain` owned by the CRM (`McpSecurityConfig`), registered with a precedence ahead of the spring-services default chain and scoped via `securityMatcher("/mcp/**")`.
 
-    U->>C: Add Custom Connector<br/>(URL, Client ID, Client Secret)
-    C->>M: GET /.well-known/oauth-protected-resource
-    M-->>C: { authorization_servers: [Authentik issuer URL] }
-    C->>A: GET /.well-known/oauth-authorization-server
-    A-->>C: authorize, token, jwks endpoints
-    C->>U: Open Authentik consent screen
-    U->>A: log in / approve scope
-    A-->>C: authorization code
-    C->>A: POST /token (code, client_id, client_secret)
-    A-->>C: access_token (JWT, aud includes open-crm-mcp)
-    C->>M: POST /mcp (JSON-RPC + Authorization: Bearer <jwt>)
-    M->>M: validate JWT via JWKS, resolve user
-    M-->>C: tool response
-```
+**Profile A — API key (Phase 1):**
 
-Key points:
+- Reuses the spring-services `ApiKeyAuthenticationFilter` bean. That filter is **HTTP-method-agnostic** — it reads the `X-API-Key` header, validates it via `ApiKeyDataService`, and sets the authentication. (The GET-only restriction in spring-services lives in the *default external chain's* `authorizeHttpRequests`, **not** in the filter — verified by bytecode inspection — so reusing the filter on a POST endpoint is correct.)
+- The `/mcp/**` chain: runs the API-key filter, requires an authenticated request for all methods on `/mcp/**`, disables CSRF (machine-to-machine API), and uses a stateless session policy.
+- **Any valid API key** authenticates. There are no per-key scopes today (see *Security considerations* → privilege expansion).
 
-- The MCP server **does not implement an authorization server.** It only advertises **Protected Resource Metadata** (`/.well-known/oauth-protected-resource`, RFC 9728) and points at Authentik as the authoritative authorization server. All actual OAuth endpoints live in Authentik.
-- The OAuth client `open-crm-mcp` is created **once, manually**, in Authentik before the connector is rolled out. Its Client ID and Client Secret are then pasted into Claude's "Add Custom Connector" dialog. No Dynamic Client Registration is needed in v1.
-- The same JWKS endpoint already configured for `/api/**` validates JWTs on `/mcp/**`. Strict `aud` validation is deferred (see TODO).
+**Profile B — per-user OIDC (Phase 2):**
 
-### Tool call flow
+- Adds JWT resource-server validation to the `/mcp/**` chain (same Authentik JWKS as `/api/**`), plus **Protected Resource Metadata** (`/.well-known/oauth-protected-resource`, RFC 9728) advertising Authentik as the authorization server. A dedicated `open-crm-mcp` OAuth client is created once in Authentik.
+- The two profiles can coexist on the same chain (API key *or* Bearer JWT). Phase 1 ships only Profile A; the JWT path and the well-known endpoint are added in Phase 2.
 
 ```mermaid
 sequenceDiagram
-    participant C as Claude
-    participant E as McpEndpoint (HTTP)
+    participant O as Onyx (self-hosted EU)
+    participant E as McpEndpoint (POST /mcp)
+    participant SEC as /mcp SecurityFilterChain
     participant T as Tool handler
-    participant SEC as Spring Security
-    participant S as Existing service<br/>(e.g. CompanyService)
-    participant A as AuditLogRepository
-    participant U as UserService
+    participant S as Existing service
 
-    C->>E: POST /mcp { tools/call list_companies ... }
-    E->>SEC: JWT validation (existing chain)
-    SEC->>U: getCurrentUserEntity()<br/>(auto-create if first call)
-    U-->>SEC: UserEntity
-    SEC->>T: dispatch to handler
+    O->>E: POST /mcp { tools/call list_contacts ... }<br/>X-API-Key: crm_…
+    E->>SEC: ApiKeyAuthenticationFilter validates key
+    SEC->>T: dispatch (actor label from transport context)
     T->>S: list(filter, pageable)
-    S-->>T: Page<CompanyDto>
-    T->>A: save AuditLogEntity(MCP, list_companies, user)
-    T-->>E: MCP tool result (JSON)
-    E-->>C: JSON-RPC response
+    S-->>T: Page<ContactDto>
+    T->>T: log.info("tool=list_contacts actor=apikey:<name>")
+    T-->>E: { items, page, size, totalCount, hasMore }
+    E-->>O: JSON-RPC response
 ```
+
+### Access logging (not audit)
+
+MCP tool calls are **reads**. The CRM `audit_log` records **mutations** (`INSERT`/`UPDATE`/`DELETE`), and read access — like viewing a record in the frontend — is **not** audited there. MCP reads are treated the same way: they are **not** written to `audit_log`. Forcing them in would be both inconsistent (the frontend isn't audited) and semantically wrong (there is no read action in the audit model — an `INSERT` for a read is a misnomer).
+
+Instead, each tool call emits one **structured INFO log line** for operational visibility: `tool=<name> actor=<label>` — never the arguments (search queries / ids can be sensitive). The actor label is `apikey:<key-name>` for the Phase 1 API-key profile, captured on the request thread by the transport context extractor (see below) and read in the tool dispatcher via `McpActorLabel`.
+
+> A future, queryable **read-access audit** for machine consumers (MCP and API-key clients) is intentionally deferred and tracked in `docs/TODO.md`. It should be a dedicated access log hung off API keys / controller endpoints — not the mutation `audit_log` — and is best built together with scoped API keys (which give per-key identity). Phase 2 (Claude) additionally introduces per-user identity, at which point per-employee access logging becomes meaningful.
 
 ## API design
 
 ### MCP endpoint
 
-| Method | Path | Purpose |
-|--------|------|---------|
-| `GET`  | `/.well-known/oauth-protected-resource` | Advertises Authentik as the authorization server for `/mcp/**` |
-| `POST` | `/mcp`              | Streamable HTTP transport endpoint (JSON-RPC 2.0). Tool discovery (`tools/list`) and tool invocation (`tools/call`) both flow through here. |
-| `GET`  | `/mcp`              | Streamable HTTP "long-poll" channel for server → client messages. |
+| Method | Path | Phase | Purpose |
+|--------|------|-------|---------|
+| `POST` | `/mcp` | 1 | Streamable HTTP transport (JSON-RPC 2.0). `tools/list` and `tools/call` flow through here. |
+| `GET`  | `/mcp` | 1 | Streamable HTTP server→client channel (as required by the transport/SDK). |
+| `GET`  | `/.well-known/oauth-protected-resource` | 2 | RFC 9728 metadata advertising Authentik (OIDC profile only; open, no auth). |
 
-Both `/mcp` methods require a Bearer JWT. The OpenAPI security scheme `bearer` (already registered in `OpenApiConfig`) covers them. The protected-resource-metadata endpoint is open (it must be reachable without auth, per RFC 9728).
+Phase 1: `/mcp` requires a valid `X-API-Key`. Phase 2: `/mcp` additionally accepts a Bearer JWT; the well-known endpoint is added and is publicly reachable.
 
-### Tool catalog (v1)
+### Tool catalog (Phase 1)
 
-All tools are read-only. All accept a `page` (default `0`) and `size` (default `20`, max `50`) parameter where they return collections. All tool responses are JSON objects matching the underlying REST DTO shape, with administrative-only fields removed where applicable.
+All tools are read-only and namespaced under the MCP server name "Open CRM" (clients display e.g. `open-crm.list_contacts`). Tool names are snake_case (MCP idiom); parameters are camelCase (matching existing DTO fields). Collection tools accept `page` (default `0`) and `size` (default from config, hard-capped) and return a **paginated envelope** (see below).
 
 | Tool name | Parameters | Returns | Backing service |
 |-----------|------------|---------|-----------------|
-| `search` | `q: string`, `limit?: int (max 50)` | `GlobalSearchResultDto` (companies, contacts, tags, comments groups with `id`, `label`, `snippet`, `score`, `ownerType`, `ownerId`) | `SearchService.search()` |
-| `list_companies` | `name?: string`, `brevo?: bool`, `tagIds?: UUID[]`, `page?: int`, `size?: int` | `Page<CompanyDto>` (with finance fields) | `CompanyService.list()` |
+| `search` | `q: string`, `limit?: int (≤ max)` | `GlobalSearchResultDto` (companies, contacts, tags, comments groups; each hit `id`, `label`, `snippet`, `score`, `ownerType`, `ownerId`) | `SearchService.search()` |
+| `list_companies` | `name?`, `brevo?`, `tagIds?`, `page?`, `size?` | `Paginated<CompanyDto>` (incl. finance fields) | `CompanyService.list()` |
 | `get_company` | `id: UUID` | `CompanyDto` | `CompanyService.findById()` |
-| `list_contacts` | `search?: string`, `companyId?: UUID`, `language?: string`, `brevo?: bool`, `tagIds?: UUID[]`, `page?`, `size?` | `Page<ContactDto>` | `ContactService.list()` |
+| `list_contacts` | `search?`, `companyId?`, `language?`, `brevo?`, `tagIds?`, `page?`, `size?` | `Paginated<ContactDto>` | `ContactService.list()` |
 | `get_contact` | `id: UUID` | `ContactDto` | `ContactService.findById()` |
-| `list_tasks` | `status?: TaskStatus`, `companyId?: UUID`, `contactId?: UUID`, `tagIds?: UUID[]`, `page?`, `size?` | `Page<TaskDto>` | `TaskService.list()` |
-| `get_task` | `id: UUID` | `TaskDto` | `TaskService.findById()` |
-| `list_tags` | `page?`, `size?` | `Page<TagDto>` (without counts to keep payload small) | `TagService.list()` |
+| `list_tags` | `page?`, `size?` | `Paginated<TagDto>` | `TagService.list()` |
 | `get_tag` | `id: UUID` | `TagDto` | `TagService.findById()` |
-| `list_company_comments` | `companyId: UUID` | `List<CommentDto>` (capped at 50) | `CompanyService.listComments()` |
-| `list_contact_comments` | `contactId: UUID` | `List<CommentDto>` (capped at 50) | `ContactService.listComments()` |
-| `list_task_comments` | `taskId: UUID` | `List<CommentDto>` (capped at 50) | `TaskService.listComments()` |
-| `list_users` | `page?`, `size?` | `Page<{ id: UUID, displayName: string }>` — **reduced view**, no e-mail, no avatar | `UserService.list()` with a dedicated projection |
+| `list_company_comments` | `companyId: UUID`, `page?`, `size?` | `Paginated<CommentDto>` (full text) | `CompanyService.listComments()` |
+| `list_contact_comments` | `contactId: UUID`, `page?`, `size?` | `Paginated<CommentDto>` (full text) | `ContactService.listComments()` |
 
-Naming convention: snake_case for tool names (MCP idiom), camelCase for parameters (matches existing DTO field names). All tools are namespaced under the MCP server name "Open CRM" — Claude shows them in its tool picker as e.g. `open-crm.list_companies`.
+### Paginated envelope (completeness signal)
+
+To prevent silent truncation, every collection tool returns an explicit envelope rather than a bare array:
+
+```json
+{
+  "items": [ /* ≤ size DTOs */ ],
+  "page": 0,
+  "size": 20,
+  "totalCount": 200,
+  "hasMore": true
+}
+```
+
+`totalCount`/`hasMore` map directly onto the existing `Page<T>` (`getTotalElements()`, `!page.isLast()`). Tool **descriptions** instruct the model to paginate when `hasMore` is `true`, so a large match (e.g. "all contacts of company X") is not answered from a truncated first page. Comment-list tools follow the same envelope instead of the old "cap at 50" mismatch hint.
 
 ### What is *not* exposed
 
-- **API keys** (`/api/api-keys`) — administrative configuration data.
-- **Webhooks** (`/api/webhooks`) — administrative configuration data.
-- **Audit log** (`/api/audit-logs`) — employee monitoring data; needs separate organizational treatment.
-- **User e-mail and avatar** — kept inside the existing IT-ADMIN-only frontend view (spec 089). The MCP `list_users` returns the reduced view.
-- **Newsletter status fields on contacts** are part of `ContactDto` and therefore included; this is consented marketing-consent data and the GDPR pre-production checklist covers it.
+- **API keys, webhooks, audit log** — administrative / monitoring data.
+- **Tasks and Users** — deferred (see *Deferred tool catalog*).
+- Newsletter-consent fields are part of `ContactDto` and therefore included; the GDPR checklist covers them.
+
+### Deferred tool catalog (from original 108, not in Phase 1)
+
+Retained for the later increment: `list_tasks`, `get_task` (over `TaskService`), `list_task_comments`, and a **reduced** `list_users` returning only `{ id, displayName }` (never email/avatar). These are out of the Onyx scope and ship after Phase 1.
 
 ## Data model
 
-No schema changes. The spec is purely additive:
+No schema changes. Purely additive:
 
-- No new entities, no new tables, no Flyway migration.
-- Audit log entries use the existing `audit_log` table with `entity_type = "MCP"`.
-- Users are looked up / created via the existing `UserService.getCurrentUserEntity()` path.
+- No new entities, tables, or Flyway migration.
+- MCP reads write nothing to the database — access is recorded only as structured INFO logs. (A future read-access log would add its own table; see `docs/TODO.md`.)
 
 ## Configuration
-
-A new `@ConfigurationProperties` block `openelements.mcp` is introduced under `application.yml`:
 
 ```yaml
 openelements:
   mcp:
-    enabled: true                 # master switch
-    server-name: "Open CRM"       # advertised name in tools/list
-    server-version: "0.1.0"       # MCP server version
-    max-page-size: 50             # hard cap for paginated tools
+    enabled: true                 # master switch — removes all MCP endpoints/beans when false
+    server-name: "Open CRM"
+    server-version: "0.1.0"
+    max-page-size: 50
     default-page-size: 20
-    authorization-server-issuer:  # used to populate protected-resource-metadata
+    auth:
+      api-key:
+        enabled: true             # Profile A (Phase 1)
+      oidc:
+        enabled: false            # Profile B (Phase 2)
+    authorization-server-issuer:  # Profile B only; populates protected-resource-metadata
       ${spring.security.oauth2.resourceserver.jwt.issuer-uri:}
 ```
 
-`enabled: false` removes all MCP endpoints from the routing table and skips bean registration. This lets ops disable the connector instantly if the GDPR checklist is not yet satisfied in a given environment.
+`enabled: false` removes all MCP endpoints and skips bean registration. The per-profile switches let Phase 1 run with no OIDC code path active.
 
 ## Dependencies
 
 ### New Maven dependencies
 
-- `io.modelcontextprotocol:sdk-spring-webmvc` — the official Java MCP SDK with Spring WebMVC integration. Exact artifact coordinate is verified during implementation; if the artifact name differs (e.g. `mcp-server-spring-webmvc`), the same dependency from the same Group ID is used. Streamable HTTP transport ships with the SDK.
+- `io.modelcontextprotocol.sdk:mcp` and `io.modelcontextprotocol.sdk:mcp-spring-webmvc` — official Java MCP SDK + Spring WebMVC transport (Streamable HTTP). **Version pinned** (reproducible builds). Transitively adds `reactor-core`; Jackson/Web are already present.
 
 ### Existing dependencies reused
 
-- `spring-boot-starter-oauth2-resource-server` — JWT validation.
-- `spring-services:0.17.0` — base services for audit, users, RBAC.
-- `springdoc-openapi-starter-webmvc-ui` — for the protected-resource-metadata endpoint to appear in Swagger UI (optional).
+- `spring-services:1.2.0` — provides `ApiKeyAuthenticationFilter`, `ApiKeyDataService`, the `api_keys` store, audit, users, RBAC.
+- `spring-boot-starter-oauth2-resource-server` — JWT validation (Phase 2).
+- `springdoc-openapi-starter-webmvc-ui` — surfaces the metadata endpoint in Swagger UI (Phase 2, optional).
 
-### Authentik configuration (one-time, manual)
+### Future dependency (not in this spec)
 
-A new OAuth2 / OpenID provider and application must be created in Authentik:
+- **Scoped API keys + rate limiting.** Planned for a future API-key capability (likely in spring-services). Broad production rollout of MCP is gated on it. Until then, MCP is **internal-use only** and every existing key has full MCP read access.
 
-- **Name / slug:** `open-crm-mcp`
-- **Client type:** Confidential
-- **Authorization flow:** company default
-- **Redirect URIs:** the redirect URI(s) advertised by Claude's MCP OAuth client. (Anthropic publishes this; the exact value is filled in during rollout.)
-- **Scopes:** `openid`, `profile`, `email` — `offline_access` is **not** requested because Claude refreshes tokens via its own session, and Open CRM does not need a refresh-token grant of its own.
-- **Roles claim:** the same custom `roles` claim that the existing `open-crm` client emits, so that RBAC mapping (`ROLE_*`) just works.
+### Onyx configuration (Phase 1, one-time, manual)
 
-The resulting Client ID and Client Secret are documented in the deployment runbook and pasted into Claude's "Add Custom Connector" dialog when an operator installs the connector. README is updated with a new "MCP Connector for Claude" section that mirrors the existing "Configure Authentik for Production" section.
+- Onyx is **self-hosted in the EU/on-prem** and configured with an **EU-hosted, GDPR-compliant LLM**.
+- In the Onyx admin panel, add an MCP server with URL `https://<crm-host>/mcp`, HTTP/Streamable transport, **Shared-Key** auth sending the custom header `X-API-Key: crm_…` (a CRM API key created at `/admin/api-keys`).
+- README gains an "MCP Server (Onyx)" section mirroring the existing API-key docs.
+
+### Authentik configuration (Phase 2, one-time, manual)
+
+A dedicated confidential OAuth client `open-crm-mcp` (scopes `openid`, `profile`, `email`; same `roles` claim as `open-crm`; redirect URI = Anthropic's published Claude-connector callback). Client ID/secret are pasted into Claude's "Add Custom Connector" dialog. Documented in the deployment runbook.
 
 ## Security considerations
 
-- **Authentication:** identical to the rest of `/api/**` — JWT signature validated via Authentik JWKS, no shared secret on the wire.
-- **Authorization:** v1 tools require any authenticated user. The `@PreAuthorize` hooks remain available for future tools that need a specific role.
-- **Audit:** every tool invocation produces an audit log row. The action is always `INSERT` (a read is logged as an access event), the `entityType` is `MCP`, the `name` is the tool name, and the user is the JWT subject's resolved user entity.
-- **Data minimization:** tools never return administrative entities. The reduced Users projection is enforced server-side; the full `UserDto` shape is never serialized over MCP.
-- **Token leakage:** the MCP server validates JWT signature only; a Bearer JWT issued for the `open-crm` web client would technically be accepted today. Strict audience enforcement is deferred (see `TODO.md`). The risk is small because both clients live in the same Authentik tenant and serve the same employee population.
-- **Logging:** request payloads and tool arguments must **not** be logged at INFO level. Free-text search queries and entity IDs can be sensitive. INFO-level logs include only `tool=<name> user=<id>`; debug-level logs may include arguments behind an explicit flag.
+- **Authentication:** Phase 1 — `X-API-Key` validated against `api_keys`; Phase 2 — JWT signature via Authentik JWKS. The `/mcp/**` chain is CRM-owned and separate from the spring-services chains.
+- **Privilege expansion (must be owned by operators):** enabling MCP expands the effective reach of **every existing API key** from "GET `/api/external`" to "all personal CRM data via MCP", because keys have no scopes yet. This is mitigated **organizationally**, not technically: MCP stays **internal-only** until scoped keys exist, and broad production rollout is gated on them. The README must warn operators to review/rotate existing keys before enabling MCP.
+- **Authorization:** v1 tools require any authenticated caller (matches the existing read policy). `@PreAuthorize` hooks remain available for future tools.
+- **Access logging:** one structured INFO line per tool call (success and failure), `tool=<name> actor=<label>`, never the arguments. MCP reads are not written to `audit_log` (consistent with unaudited frontend reads). A queryable read-access audit is deferred (see `docs/TODO.md`).
+- **Data minimization:** administrative entities are never exposed; the deferred `list_users` is a reduced projection. Page size is hard-capped.
+- **Most-sensitive data:** comment **full text** is exposed in Phase 1 by explicit decision — it is the most sensitive, least-structured data. Mitigated by the self-hosted EU Onyx + EU GDPR-compliant LLM + signed AVV (pending) + internal-only use.
+- **Logging:** tool arguments (search queries, IDs) must **not** be logged at INFO. INFO logs only `tool=<name> actor=<label>`; argument-level logging is behind an explicit debug flag.
 
-## Key flows
+## GDPR / DSGVO
 
-### Tool discovery
+The processing profile differs sharply between the two phases; each carries its own pre-production checklist. The technical feature **must not be enabled in a given environment until that phase's checklist is complete.**
 
-```mermaid
-sequenceDiagram
-    Claude->>McpEndpoint: POST /mcp { method: "tools/list" }
-    McpEndpoint->>McpEndpoint: collect registered @Tool beans
-    McpEndpoint-->>Claude: { tools: [ {name, description, inputSchema}, ... ] }
-```
+### Phase 1 — Onyx (self-hosted EU) + EU-hosted LLM
 
-Claude calls this once per session and uses the returned descriptions to decide when to invoke each tool. Tool **descriptions** are therefore part of the user-facing contract — they must be clear and short, e.g.:
+CRM personal data (names, e-mail, addresses, phone, birthdays, **free-text comments**) is retrieved by the self-hosted Onyx and forwarded to the configured EU-hosted LLM. There is **no third-country transfer**, which removes the heavy DPF/SCC/DPIA-for-US burden — but processors and documentation are still required:
 
-> `list_contacts` — "List contacts. Supports search by name/email/company name and filtering by company, language, Brevo origin, and tags. Returns a paginated list (max 50 per call)."
+1. **AVV / DPA with the LLM provider** covering CRM-category personal data. *(Status: open — will be done before rollout.)*
+2. **Legal basis documented** — typically Art. 6 (1) lit. f (internal CRM use) with a balancing test; lit. b for prospect/customer data.
+3. **Privacy notice updated** — public policy and internal employee notice mention that CRM data may be sent to the LLM provider on request.
+4. **Onyx chat-log retention** — Onyx persists chat history including retrieved CRM data in its own datastore; a retention/deletion policy for those logs must exist (data-subject erasure must reach them).
+5. **Works council** — Onyx logs which employee asked what; if a works council exists, an agreement on this monitoring may be required (the CRM side only logs key-level access, not per-employee).
 
-### Audit-log entry per tool call
+### Phase 2 — Claude (Anthropic, USA)
 
-After a successful (or failed) tool dispatch, an audit log entry is recorded. Failures are logged with `name = "<tool>: <error class>"` so that operators can see misuse patterns later.
+Sending CRM data to Anthropic makes Anthropic an Art. 28 processor in a third country. The original 108 checklist applies in full: signed DPA with Anthropic; Zero-Data-Retention confirmed in writing; legal basis + balancing test; **DPIA** referencing Anthropic's EU-US DPF certification (or SCCs); privacy-notice update; works-council agreement (per-employee audit makes this monitoring concrete).
 
-### First-time MCP call (auto-provisioning)
-
-When a JWT arrives whose `sub` does not yet correspond to a `UserEntity`, `UserService.getCurrentUserEntity()` creates one — exactly as it does on first frontend login (spec 065). The MCP layer does nothing special.
+Both checklists are reproduced in `behaviors.md` as manual production-readiness checks.
 
 ## Open questions
 
-- **Tool descriptions in German vs English.** All MCP tooling speaks English by convention, but Open CRM's primary audience may be German-speaking. v1 ships English descriptions and English tool names; if usage shows that Claude better matches German prompts to German tool descriptions, this can change later without breaking compatibility.
-- **MCP SDK release line.** The official Java MCP SDK is young. If the chosen version still has breaking changes between minor releases, we pin a specific version and update with care.
-- **Anthropic's published redirect URI for Claude MCP connectors.** The exact URL must be looked up at implementation time and registered in Authentik. If Anthropic ever rotates it, the Authentik client must be updated.
+- **Streamable HTTP mode.** Stateful (session id + GET channel) vs. stateless, and exact interop between Onyx's MCP client and the Java SDK transport — verified at implementation. Prefer the simplest mode that Onyx validates against.
+- **MCP SDK release line.** The official Java MCP SDK is young; pin a specific version and upgrade deliberately.
+- **Scoped keys / rate limiting.** Tracked as a future API-key capability; this spec assumes its absence and compensates organizationally.
+- **Anthropic's published redirect URI** for Claude connectors (Phase 2) — looked up and registered in Authentik at rollout.
 
 ## Rationale for key choices
 
-- **Why per-user OIDC instead of an API key or shared service account?** RBAC and audit log only have meaning when the request carries the employee's own identity. A shared service account would collapse every Claude action into one CRM user, breaking both.
-- **Why a second OAuth client (`open-crm-mcp`) instead of reusing `open-crm`?** Separation of concerns: the web frontend client and the MCP client may evolve independently (different redirect URIs, different consent screens, different scopes once write tools land). Cost is one extra entry in Authentik.
-- **Why no Dynamic Client Registration?** Authentik does not support DCR cleanly today, and one manual client creation per environment is a fixed cost paid by ops, not by every employee.
-- **Why the official Java MCP SDK and not Spring AI's MCP starter?** The official SDK is the same code, distributed without pulling in the rest of the Spring AI ecosystem. Open CRM has no other Spring AI features and adding the umbrella starter just to register a few tools is unnecessary weight.
-- **Why page-based pagination instead of cursor-based?** All existing services return `Page<T>`. Recycling that shape costs nothing and saves writing a new query layer. Drift between web pagination and MCP pagination is the trade-off — acceptable for v1.
-- **Why log a `MCP`-typed audit entry for reads?** The existing audit log already records reads of sensitive areas; a Claude read is a transmission to a third country and is at least as sensitive as a frontend read.
-- **Why a reduced `list_users` projection instead of inheriting the IT-ADMIN gate from `/api/users`?** A double policy ("IT-ADMIN over HTTP, everyone over MCP") would be confusing; instead, MCP gets a less-revealing view that is genuinely safe for all roles.
+- **Why one client-agnostic server with two auth profiles instead of two servers?** MCP tools, transport, and audit are identical for every client; only auth differs. A single core with a pluggable auth profile avoids duplicating the tool layer and keeps behavior consistent across clients.
+- **Why API key first (Onyx) and OIDC later (Claude)?** Onyx is the immediate need, self-hosted EU keeps GDPR light, and the API-key path reuses existing infrastructure with no OAuth-metadata work — the smallest viable slice. OIDC is heavier (RFC 9728 + a second Authentik client) and serves the later Claude use case.
+- **Why a dedicated `/mcp` security chain instead of extending the spring-services external chain?** The spring-services external chain is locked to GET on `/api/external/**`. A CRM-owned chain for `/mcp/**` cleanly allows POST and composes both auth profiles without forking the library.
+- **Why not audit MCP reads in `audit_log`?** That table records mutations; reads (including frontend record views) are not audited. Logging MCP reads there would be inconsistent and would require a non-existent "read" action (an `INSERT` for a read is wrong). Access is logged operationally instead; a proper read-access audit is deferred to a dedicated mechanism (see `docs/TODO.md`).
+- **Why the official Java MCP SDK and not Spring AI?** Measured: Spring AI adds ~12–15 MCP-irrelevant transitive jars (templating, tokenizer, JSON-schema stack, a stale validation API) for only annotation sugar. The official SDK keeps the footprint minimal.
+- **Why page-based pagination with an explicit `hasMore`?** All services already return `Page<T>`; reusing it costs nothing, and the explicit envelope prevents the model from answering off a silently truncated first page.

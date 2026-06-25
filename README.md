@@ -21,6 +21,8 @@ complexity of enterprise CRM solutions.
   management
 - **Brevo Sync** — Automatic synchronization of customers and companies with [Brevo](https://www.brevo.com/) for
   marketing and communication workflows
+- **MCP Server** — Optional read-only [Model Context Protocol](https://modelcontextprotocol.io) endpoint so AI
+  assistants (e.g. self-hosted [Onyx AI](https://onyx.app)) can search and read CRM data live (disabled by default)
 
 ## Tech Stack
 
@@ -324,6 +326,65 @@ curl -X POST https://crm-backend.example.com/api/companies \
   -d '{"name": "Test"}'
 # -> 403 Forbidden: "API keys only grant read-only access"
 ```
+
+## MCP Server (Onyx AI)
+
+Open CRM can expose its data to AI assistants through a read-only
+[Model Context Protocol](https://modelcontextprotocol.io) (MCP) server, so a tool
+such as a self-hosted [Onyx AI](https://onyx.app) instance can search and read
+CRM data live during a chat. The server speaks **Streamable HTTP** at `/mcp`
+(official Java MCP SDK) and is **disabled by default**.
+
+> ⚠️ **Before enabling MCP, review your API keys.** While MCP is on, **every
+> existing API key** gains read access to all personal CRM data (companies,
+> contacts, tags, and **full-text comments**) via the MCP tools — API keys have
+> no per-key scopes yet. Enabling MCP is therefore a deliberate, environment-by-
+> environment decision. Keep it to **internal use** until scoped keys exist, and
+> review/rotate existing keys first.
+
+### Enabling the server
+
+Set the master switch (off by default):
+
+```bash
+MCP_ENABLED=true                 # turn the /mcp endpoint on
+MCP_AUTH_API_KEY_ENABLED=true    # API-key auth profile (default true)
+```
+
+The endpoint authenticates with the **same `X-API-Key`** scheme as the REST API
+(see [API Keys](#api-keys)). Create a key on the Admin page, then point the MCP
+client at `https://crm-backend.example.com/mcp`.
+
+### Configuring Onyx
+
+In the Onyx admin panel, add an MCP server:
+
+- **URL:** `https://crm-backend.example.com/mcp`
+- **Transport:** HTTP (Streamable HTTP)
+- **Auth:** Shared Key, sending a custom header `X-API-Key: crm_your_key_here`
+
+Onyx validates the connection and lists the available tools.
+
+### Tools (read-only)
+
+`search` (global typo-tolerant search across companies, contacts, tags,
+comments), `list_companies` / `get_company`, `list_contacts` / `get_contact`,
+`list_tags` / `get_tag`, `list_company_comments`, `list_contact_comments`.
+
+Collection tools return a paginated envelope (`items`, `page`, `size`,
+`totalCount`, `hasMore`; default page size 20, max 50). Every tool call is
+recorded in the audit log (`entityType = "MCP"`); under the API-key profile the
+audit actor is the SYSTEM user with the key name in the entry (per-user
+attribution arrives with the planned OIDC profile).
+
+### GDPR
+
+Enabling MCP transmits personal CRM data to the MCP client and its LLM. For a
+self-hosted, EU-hosted Onyx + EU-hosted LLM this avoids a third-country
+transfer, but a data-processing agreement (AVV) with the LLM provider, a
+documented legal basis, an updated privacy notice, and a retention policy for
+the client's chat logs are still required before production use. See
+`docs/specs/108-mcp-connector/design.md` for the full checklist.
 
 ## Webhooks
 

@@ -27,7 +27,9 @@ jobs:
         working-directory: frontend
     steps:
       - uses: actions/checkout@v6
-      - uses: pnpm/action-setup@v4 # reads pnpm version from packageManager
+      - uses: pnpm/action-setup@v4
+        with:
+          package_json_file: frontend/package.json # packageManager lives in frontend/, not repo root
       - uses: actions/setup-node@v6
         with:
           node-version-file: "frontend/.nvmrc" # reads Node version from .nvmrc

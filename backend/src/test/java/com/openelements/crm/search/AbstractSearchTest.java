@@ -5,8 +5,11 @@ import com.openelements.spring.base.services.search.MeilisearchClient;
 import com.openelements.spring.base.services.search.MeilisearchProperties;
 import java.time.Duration;
 import java.util.List;
+import java.util.concurrent.Executor;
 import org.junit.jupiter.api.AfterEach;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.testcontainers.containers.GenericContainer;
@@ -54,6 +57,10 @@ public abstract class AbstractSearchTest extends AbstractDbTest {
     @Autowired
     private CrmIndexNames crmIndexNames;
 
+    @Autowired
+    @Qualifier("searchIndexExecutor")
+    private Executor searchIndexExecutor;
+
     @AfterEach
     void resetIndexes() {
         // Delete all documents from each index but keep the index itself —
@@ -82,13 +89,37 @@ public abstract class AbstractSearchTest extends AbstractDbTest {
     }
 
     /**
-     * Blocks until the latest Meilisearch task reaches a terminal state, or
-     * the timeout elapses. Delegates to
-     * {@link MeilisearchClient#waitForLatestTask(Duration)} — a deterministic
-     * poll of {@code /tasks?limit=1} rather than a fixed sleep.
+     * Blocks until a just-triggered write is fully indexed and searchable.
+     *
+     * <p>Indexing is asynchronous: an entity change publishes an event handled on
+     * the {@code searchIndexExecutor} pool ({@code @Async}), which only then
+     * submits the Meilisearch write task. Waiting on {@code waitForLatestTask}
+     * alone races with that hand-off — under load the "latest task" may still be
+     * an older one, and the query runs before the new document is indexed (the
+     * cause of the intermittent typo-tolerance failure in CI).
+     *
+     * <p>This therefore first drains the async executor (so the write task has
+     * been submitted to Meilisearch), then waits for that task to reach a
+     * terminal state. Both steps poll observable state with a timeout — no fixed
+     * "sleep and hope".
      */
     protected void waitForIndex() {
-        meilisearchClient.waitForLatestTask(Duration.ofSeconds(5));
+        drainSearchIndexExecutor();
+        meilisearchClient.waitForLatestTask(Duration.ofSeconds(10));
+    }
+
+    private void drainSearchIndexExecutor() {
+        final ThreadPoolTaskExecutor executor = (ThreadPoolTaskExecutor) searchIndexExecutor;
+        final long deadline = System.nanoTime() + Duration.ofSeconds(10).toNanos();
+        while (System.nanoTime() < deadline
+            && (executor.getActiveCount() > 0 || !executor.getThreadPoolExecutor().getQueue().isEmpty())) {
+            try {
+                Thread.sleep(20);
+            } catch (final InterruptedException e) {
+                Thread.currentThread().interrupt();
+                return;
+            }
+        }
     }
 
     protected MeilisearchClient meilisearchClient() {

@@ -214,3 +214,20 @@ is in production and the operational impact of stricter audience checks has been
 MCP rollout is not blocked.
 
 **Prerequisite:** MCP-Connector spec must be merged.
+
+## Read-access audit for sensitive records (MCP and other consumers)
+
+Today only mutations are audited (`audit_log` with `INSERT`/`UPDATE`/`DELETE`); reading a record — in the
+frontend or via the MCP server — is not recorded. For data-protection purposes it may become desirable to audit
+**who read which personal-data record**, at least for machine consumers (MCP, API-key clients) that pull data in
+bulk. This should **not** be bolted onto the current mutation `audit_log` (an `INSERT` action for a read is
+semantically wrong, and read access would drown the mutation trail). A dedicated read-/access-log is the right
+model, most likely hung off **API keys and the controller endpoints** (a cross-cutting access log over the REST
+layer) so it covers every external read consumer uniformly — not just MCP.
+
+**Context:** Surfaced during review of spec 108 (MCP server). Phase 1 deliberately drops per-read DB auditing to
+stay consistent with the unaudited frontend reads; access is recorded only as structured INFO logs
+(`tool=… actor=…`).
+
+**Prerequisite:** Best designed together with the planned scoped API keys (per-key identity makes the access log
+meaningful).
