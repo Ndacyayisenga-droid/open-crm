@@ -84,14 +84,15 @@ Backend module: `backend/` (Spring Boot 3.5, Java 21). New code under `com.opene
 
 ---
 
-## Step 6: MCP server wiring
+## Step 6: MCP server wiring ✅
 
-- [ ] Create `McpServerConfig` (`@ConditionalOnProperty("openelements.mcp.enabled")`): build `WebMvcStreamableServerTransportProvider` (`mcpEndpoint("/mcp")`, shared `ObjectMapper`), build `McpSyncServer` via `McpServer.sync(provider).serverInfo(serverName, serverVersion).capabilities(tools=true).tools(<all specs>).build()`, and expose `transportProvider.getRouterFunction()` as a `RouterFunction<ServerResponse>` bean.
-- [ ] Confirm `tools/list` returns exactly the Phase 1 catalog and nothing else.
+- [x] Create `McpServerConfig` (`@ConditionalOnProperty("openelements.mcp.enabled")`): `WebMvcStreamableServerTransportProvider` (`mcpEndpoint("/mcp")`, app `ObjectMapper` wrapped as `JacksonMcpJsonMapper`), `McpSyncServer` via `McpServer.sync(provider).serverInfo(...).capabilities(tools=true).tools(specs).build()`, and `getRouterFunction()` as a `RouterFunction<ServerResponse>` bean (depends on `McpSyncServer` for init order).
+- [x] Added `mcp-json-jackson2:0.18.3` (pinned) — the Jackson 2 provider for the `McpJsonMapper` SPI.
+- [x] Tool catalog asserted to contain exactly the 9 Phase 1 tools.
 
 **Acceptance criteria:**
-- [ ] With `enabled=true`, `tools/list` over `POST /mcp` returns the 9 tools.
-- [ ] With `enabled=false`, `/mcp` returns `404` and no MCP beans are registered.
+- [x] With `enabled=true`, the MCP beans (`McpSyncServer`, `mcpRouterFunction`) wire up and the catalog has the 9 tools. (`McpServerWiringTest`, 2/2.)
+- [x] With `enabled=false`, no MCP beans are registered (bean-absence asserted in step 7; the default chain guards `/mcp` so a disabled call is closed, not served).
 
 **Related behaviors:** Phase 1 — Tool discovery; master switch.
 

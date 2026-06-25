@@ -116,6 +116,15 @@
             <version>${mcp-sdk.version}</version>
         </dependency>
 
+        <!-- Jackson 2 provider for the MCP SDK's McpJsonMapper SPI (matches the
+             project's Jackson 2 / Spring Boot 3.5 stack). Not pulled transitively
+             by mcp-spring-webmvc. -->
+        <dependency>
+            <groupId>io.modelcontextprotocol.sdk</groupId>
+            <artifactId>mcp-json-jackson2</artifactId>
+            <version>${mcp-sdk.version}</version>
+        </dependency>
+
         <!-- HEIC decoding via libheif. Multi-Release JAR — activates under JDK 21+. -->
         <dependency>
             <groupId>com.github.gotson.nightmonkeys</groupId>
