@@ -9,7 +9,7 @@ import { AddCommentDialog } from "@open-elements/nextjs-app-layer";
 import { useTranslationConfig } from "@/lib/use-translation-config";
 import { getCompanyComments, createCompanyComment, deleteCompanyComment, ForbiddenError, translateText } from "@/lib/api";
 import type { CommentDto } from "@/lib/types";
-import { hasRole, ROLE_ADMIN } from "@open-elements/nextjs-app-layer";
+import { hasAppAdmin } from "@/lib/roles";
 
 function formatDate(dateString: string, language: string): string {
   const date = new Date(dateString);
@@ -32,7 +32,7 @@ export function CompanyComments({ companyId, totalCount }: CompanyCommentsProps)
   const { configured } = useTranslationConfig();
   const S = t.companies.comments;
   const { data: session } = useSession();
-  const canDelete = hasRole(session, ROLE_ADMIN);
+  const canDelete = hasAppAdmin(session);
 
   const [displayCount, setDisplayCount] = useState(totalCount);
   const [comments, setComments] = useState<CommentDto[]>([]);

@@ -4,15 +4,16 @@ import { useCallback, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useSession } from "next-auth/react";
 import Link from "next/link";
-import { Plus, Trash2, User, Printer, Pencil, MessageSquarePlus, FileDown, ExternalLink, Contact } from "lucide-react";
+import { Plus, Trash2, User, Printer, Pencil, MessageSquarePlus, FileDown, FileUp, ExternalLink, Contact } from "lucide-react";
 import { Button, DeleteConfirmDialog, Input, TagMultiSelect, Table, TableBody, TableCell, TableHead, TableHeader, TableRow, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, Skeleton } from "@open-elements/ui";
 import { useTranslations } from "@/lib/i18n";
 import { ActionIconButton, CopyToClipboardButton, MailtoButton, TablePagination, TooltipIconButton } from "@open-elements/ui";
 import { AddCommentDialog } from "@open-elements/nextjs-app-layer";
 import { CsvExportDialog } from "@/components/csv-export-dialog";
+import { CsvImportDialog } from "@/components/csv-import-dialog";
 import { getContacts, deleteContact, getCompaniesForSelect, getContactPhotoUrl, createContactComment, getContactExportUrl, getContactVCardExportUrl, getTags, ForbiddenError } from "@/lib/api";
 import type { ContactDto, CompanyDto, Page } from "@/lib/types";
-import { hasRole, ROLE_ADMIN } from "@open-elements/nextjs-app-layer";
+import { hasAppAdmin, ROLE_APP_ADMIN, ROLE_IT_ADMIN } from "@/lib/roles";
 
 function EmailCell({ value }: { readonly value: string | null }) {
   if (!value) return <TableCell className="text-oe-gray-mid">—</TableCell>;
@@ -53,7 +54,9 @@ export function ContactsClient() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { data: session } = useSession();
-  const canDelete = hasRole(session, ROLE_ADMIN);
+  const canDelete = hasAppAdmin(session);
+  const canImport =
+    session?.roles?.includes(ROLE_APP_ADMIN) || session?.roles?.includes(ROLE_IT_ADMIN);
   const [data, setData] = useState<Page<ContactDto> | null>(null);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(0);
@@ -80,6 +83,7 @@ export function ContactsClient() {
   const [commentTarget, setCommentTarget] = useState<ContactDto | null>(null);
   const [commentSending, setCommentSending] = useState(false);
   const [csvOpen, setCsvOpen] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
 
   const contactColumns = Object.entries(t.csvExport.contactColumns).map(([key, label]) => ({
     key: key.replace(/([A-Z])/g, "_$1").toUpperCase(),
@@ -170,6 +174,12 @@ export function ContactsClient() {
             <FileDown className="mr-2 h-4 w-4" />
             {t.csvExport.button}
           </Button>
+          {canImport && (
+            <Button variant="outline" onClick={() => setImportOpen(true)}>
+              <FileUp className="mr-2 h-4 w-4" />
+              {t.csvImport.button}
+            </Button>
+          )}
           <Button
             variant="outline"
             disabled={!data || data.page.totalElements === 0}
@@ -420,6 +430,12 @@ export function ContactsClient() {
           );
           window.open(url, "_blank");
         }}
+      />
+
+      <CsvImportDialog
+        open={importOpen}
+        onOpenChange={setImportOpen}
+        onComplete={fetchContacts}
       />
     </div>
   );

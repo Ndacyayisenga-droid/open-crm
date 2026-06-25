@@ -25,6 +25,9 @@ import type {
   BackupItemDto,
   TranslationConfigDto,
   TranslateResponseDto,
+  ContactImportRequest,
+  ContactImportPreviewResponse,
+  ContactImportResult,
   Page,
 } from "./types";
 import type { TagDto } from "@open-elements/ui";
@@ -47,6 +50,10 @@ function baseUrl(): string {
 }
 
 async function apiFetch(url: string, init?: RequestInit): Promise<Response> {
+  const clientInit: RequestInit | undefined = isServer()
+    ? init
+    : { credentials: "include", redirect: "manual", ...init };
+
   if (isServer()) {
     try {
       const session = await auth();
@@ -60,9 +67,10 @@ async function apiFetch(url: string, init?: RequestInit): Promise<Response> {
     }
     return fetch(url, init);
   }
-  const response = await fetch(url, init);
-  if (response.status === 401) {
-    window.location.href = "/api/logout";
+  const response = await fetch(url, clientInit);
+  if (response.status === 401 || response.status === 307 || response.status === 302) {
+    window.location.href = response.headers.get("location") ?? "/api/logout";
+    throw new Error("Session expired");
   }
   return response;
 }
@@ -362,6 +370,52 @@ export function getContactVCardExportUrl(params: ContactListParams): string {
 
 export function getContactVCardUrl(id: string): string {
   return `${baseUrl()}/api/contacts/${id}/vcard`;
+}
+
+async function postContactImport(
+  path: "preview" | "commit",
+  file: File,
+  request: ContactImportRequest,
+): Promise<Response> {
+  const formData = new FormData();
+  formData.append("file", file);
+  formData.append(
+    "request",
+    new Blob([JSON.stringify(request)], { type: "application/json" }),
+    "request.json",
+  );
+  return apiFetch(`${baseUrl()}/api/contacts/import/${path}`, {
+    method: "POST",
+    body: formData,
+  });
+}
+
+export async function previewContactImport(
+  file: File,
+  request: ContactImportRequest,
+): Promise<ContactImportPreviewResponse> {
+  const response = await postContactImport("preview", file, request);
+  if (response.status === 403) {
+    throw new ForbiddenError();
+  }
+  if (!response.ok) {
+    throw new Error(`Import preview failed: ${response.status}`);
+  }
+  return response.json();
+}
+
+export async function commitContactImport(
+  file: File,
+  request: ContactImportRequest,
+): Promise<ContactImportResult> {
+  const response = await postContactImport("commit", file, request);
+  if (response.status === 403) {
+    throw new ForbiddenError();
+  }
+  if (!response.ok) {
+    throw new Error(`Import commit failed: ${response.status}`);
+  }
+  return response.json();
 }
 
 export async function getCompaniesForSelect(): Promise<CompanyDto[]> {

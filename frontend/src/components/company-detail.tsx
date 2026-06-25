@@ -13,7 +13,7 @@ import { CompanyComments } from "@/components/company-comments";
 import { useTranslationConfig } from "@/lib/use-translation-config";
 import { deleteCompany, ForbiddenError, getCompanyLogoUrl, getTag, translateText } from "@/lib/api";
 import type { CompanyDto } from "@/lib/types";
-import { hasRole, ROLE_ADMIN } from "@open-elements/nextjs-app-layer";
+import { hasAppAdmin } from "@/lib/roles";
 
 export function CompanyDetail({ company }: { readonly company: CompanyDto }) {
   const t = useTranslations();
@@ -21,7 +21,7 @@ export function CompanyDetail({ company }: { readonly company: CompanyDto }) {
   const S = t.companies;
   const router = useRouter();
   const { data: session } = useSession();
-  const canDelete = hasRole(session, ROLE_ADMIN);
+  const canDelete = hasAppAdmin(session);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [tags, setTags] = useState<TagDto[]>([]);

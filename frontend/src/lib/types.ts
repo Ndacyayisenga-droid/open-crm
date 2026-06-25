@@ -250,3 +250,62 @@ export interface BackupItemDto {
   readonly durationMs: number;
   readonly triggeredBy: string | null;
 }
+
+export type ContactImportTarget =
+  | "TITLE"
+  | "FIRST_NAME"
+  | "LAST_NAME"
+  | "EMAIL"
+  | "POSITION"
+  | "PHONE_NUMBER"
+  | "LINKEDIN_URL"
+  | "WEBSITE_URL";
+
+export interface ContactImportRequest {
+  readonly encoding: string;
+  readonly hasHeader: boolean;
+  readonly mapping: Record<string, string> | null;
+}
+
+export interface ContactPreviewFields {
+  readonly title: string | null;
+  readonly firstName: string | null;
+  readonly lastName: string | null;
+  readonly email: string | null;
+  readonly position: string | null;
+  readonly phoneNumber: string | null;
+  readonly linkedInUrl: string | null;
+  readonly websiteUrl: string | null;
+}
+
+export interface ContactImportRowError {
+  readonly field: string;
+  readonly reason: string;
+}
+
+export interface ContactImportPreviewDto {
+  readonly row: number;
+  readonly contact: ContactPreviewFields;
+  readonly errors: readonly ContactImportRowError[];
+}
+
+export interface ContactImportPreviewResponse {
+  readonly delimiter: string;
+  readonly columns: readonly string[];
+  readonly totalRows: number;
+  readonly sampleRows: readonly Record<string, string>[];
+  readonly sampleContacts: readonly ContactImportPreviewDto[] | null;
+}
+
+export interface ContactImportFailure {
+  readonly row: number;
+  readonly field: string | null;
+  readonly reason: string;
+  readonly cells: Record<string, string>;
+}
+
+export interface ContactImportResult {
+  readonly createdCount: number;
+  readonly failedCount: number;
+  readonly failures: readonly ContactImportFailure[];
+}

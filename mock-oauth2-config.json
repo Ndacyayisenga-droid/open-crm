@@ -15,6 +15,17 @@
             "picture": "https://open-elements.com/team/hendrik.jpg",
             "roles": ["APP-ADMIN", "APP-USER", "IT-ADMIN"]
           }
+        },
+        {
+          "requestParam": "grant_type",
+          "match": "refresh_token",
+          "claims": {
+            "sub": "john-doe-001",
+            "name": "John Doe",
+            "email": "john@open-elements.com",
+            "picture": "https://open-elements.com/team/hendrik.jpg",
+            "roles": ["APP-ADMIN", "APP-USER", "IT-ADMIN"]
+          }
         }
       ]
     }

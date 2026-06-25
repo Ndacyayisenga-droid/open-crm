@@ -13,7 +13,7 @@ import { CompanyDeleteDialog } from "@/components/company-delete-dialog";
 import { CsvExportDialog } from "@/components/csv-export-dialog";
 import { getCompanies, deleteCompany, getCompanyLogoUrl, createCompanyComment, getCompanyExportUrl, getTags, ForbiddenError } from "@/lib/api";
 import type { CompanyDto, Page } from "@/lib/types";
-import { hasRole, ROLE_ADMIN } from "@open-elements/nextjs-app-layer";
+import { hasAppAdmin } from "@/lib/roles";
 
 function WebsiteCell({ value }: { readonly value: string | null }) {
   if (!value) return <TableCell className="text-oe-gray-mid">—</TableCell>;
@@ -53,7 +53,7 @@ export function CompaniesClient() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { data: session } = useSession();
-  const canDelete = hasRole(session, ROLE_ADMIN);
+  const canDelete = hasAppAdmin(session);
   const [data, setData] = useState<Page<CompanyDto> | null>(null);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(0);

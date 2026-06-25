@@ -19,13 +19,13 @@ import {
 import {useTranslations} from "@/lib/i18n";
 import {TablePagination, TooltipIconButton} from "@open-elements/ui";
 import {deleteTag, ForbiddenError, getTags} from "@/lib/api";
-import {hasRole, ROLE_ADMIN} from "@open-elements/nextjs-app-layer";
+import {hasAppAdmin} from "@/lib/roles";
 import type {Page} from "@/lib/types";
 
 export function TagsClient() {
   const t = useTranslations();
   const {data: session} = useSession();
-  const canDelete = hasRole(session, ROLE_ADMIN);
+  const canDelete = hasAppAdmin(session);
   const [data, setData] = useState<Page<TagDto> | null>(null);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(0);
