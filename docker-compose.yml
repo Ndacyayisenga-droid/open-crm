@@ -68,7 +68,7 @@ services:
       - backend
 
   db-backup:
-    build: ./scripts
+    build: ./db-backup
     environment:
       DB_HOST: db
       DB_INTERNAL_PORT: 5432
