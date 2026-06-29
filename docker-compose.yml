@@ -53,8 +53,6 @@ services:
         condition: service_healthy
       meilisearch:
         condition: service_started
-      db-backup:
-        condition: service_started
 
   frontend:
     build: ./frontend
