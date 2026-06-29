@@ -50,3 +50,7 @@ openelements:
         enabled: ${MCP_AUTH_API_KEY_ENABLED:true}   # Phase 1 — Onyx via X-API-Key
       oidc:
         enabled: ${MCP_AUTH_OIDC_ENABLED:false}      # Phase 2 — Claude via Authentik OIDC
+  db-backup:
+    base-url: ${DB_BACKUP_BASE_URL:http://localhost:8081}
+    api-token: ${DB_BACKUP_API_TOKEN:}
+    request-timeout: 30s

@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import { useSession } from "next-auth/react";
-import { Activity, Bell, Building2, FileText, KeyRound, RefreshCw, Search, Settings, Tag, Users, Webhook } from "lucide-react";
+import { Activity, Bell, Building2, DatabaseBackup, FileText, KeyRound, RefreshCw, Search, Settings, Tag, Users, Webhook } from "lucide-react";
 import { Sidebar, NavItem, CollapsibleGroup, TooltipProvider } from "@open-elements/ui";
 import { useTranslations } from "@/lib/i18n";
 import { getCurrentUser } from "@/lib/api";
@@ -58,6 +58,7 @@ function CrmSidebar() {
               <NavItem href="/admin/webhooks" icon={<Webhook className="h-5 w-5" />} label={t.nav.webhooks} active={pathname.startsWith("/admin/webhooks")} indented />
               <NavItem href="/admin/users" icon={<Users className="h-5 w-5" />} label={t.nav.users} active={pathname.startsWith("/admin/users")} indented />
               <NavItem href="/admin/audit-logs" icon={<FileText className="h-5 w-5" />} label={t.nav.auditLogs} active={pathname.startsWith("/admin/audit-logs")} indented />
+              <NavItem href="/admin/backup" icon={<DatabaseBackup className="h-5 w-5" />} label={t.nav.backup} active={pathname.startsWith("/admin/backup")} indented />
             </CollapsibleGroup>
           ) : undefined
         }

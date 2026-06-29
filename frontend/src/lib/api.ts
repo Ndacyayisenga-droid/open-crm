@@ -20,6 +20,9 @@ import type {
   UpdateEntryDto,
   BrevoSettingsDto,
   BrevoSyncResultDto,
+  BackupStatusDto,
+  BackupTriggerDto,
+  BackupItemDto,
   TranslationConfigDto,
   TranslateResponseDto,
   Page,
@@ -548,6 +551,42 @@ export async function startBrevoSync(): Promise<BrevoSyncResultDto> {
   }
 
   return response.json();
+}
+
+// Backup admin API (spec 107)
+
+export async function getBackupStatus(): Promise<BackupStatusDto> {
+  const url = `${baseUrl()}/api/admin/backup/status`;
+  const response = await apiFetch(url, { cache: "no-store" });
+
+  if (!response.ok) {
+    throw new Error(`Failed to fetch backup status: ${response.status}`);
+  }
+  return response.json();
+}
+
+export async function triggerBackup(): Promise<BackupTriggerDto> {
+  const url = `${baseUrl()}/api/admin/backup/trigger`;
+  const response = await apiFetch(url, { method: "POST" });
+
+  if (!response.ok) {
+    throw new Error(`Failed to trigger backup: ${response.status}`);
+  }
+  return response.json();
+}
+
+export async function getBackups(): Promise<BackupItemDto[]> {
+  const url = `${baseUrl()}/api/admin/backup/backups`;
+  const response = await apiFetch(url, { cache: "no-store" });
+
+  if (!response.ok) {
+    throw new Error(`Failed to fetch backups: ${response.status}`);
+  }
+  return response.json();
+}
+
+export function backupDownloadUrl(id: string): string {
+  return `/api/admin/backup/backups/${encodeURIComponent(id)}/download`;
 }
 
 // Tags

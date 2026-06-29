@@ -106,8 +106,13 @@ Defaults match the `DbBackupProperties` record in spring-services. The empty def
 "Graceful degradation" below), and a default of `""` causes the client to throw
 `DbBackupException` only at the point a request is made, not at boot.
 
-No `docker-compose.yml` change is required for the open-crm repo: the backup service is operated
-out-of-tree and is reached via the env-var-supplied URL.
+`docker-compose.yml` runs the backup service as a sibling container. The previous cron-only
+`./scripts` backup container (Alpine + `pg_dump` + `crond` uploading to S3) is replaced by the
+`ghcr.io/openelementslabs/db-backup-service` image, which exposes the HTTP API the `DbBackupClient`
+talks to. The backend reaches it in-network via `DB_BACKUP_BASE_URL=http://db-backup:8080` and
+shares the bearer token through `DB_BACKUP_API_TOKEN` (also passed to the service as `API_TOKEN`).
+The token is optional at boot: a blank value keeps the backend healthy and the admin page reports
+"not configured". The image is pinned by tag + digest for reproducible deployments.
 
 ### Backend REST API
 
