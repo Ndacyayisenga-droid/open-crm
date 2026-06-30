@@ -220,11 +220,14 @@ export interface BackupLastDto {
 }
 
 export interface BackupServiceInfoDto {
-  readonly version: string;
-  readonly pgDumpVersion: string;
-  readonly retention: BackupRetentionDto;
-  readonly backupInterval: BackupIntervalDto;
-  readonly backup: BackupLastDto;
+  // All fields can be null at runtime: when the db-backup-service /info contract
+  // does not match the backend's DbBackupClient, Jackson leaves unmapped fields
+  // null rather than failing. Callers must guard before dereferencing.
+  readonly version: string | null;
+  readonly pgDumpVersion: string | null;
+  readonly retention: BackupRetentionDto | null;
+  readonly backupInterval: BackupIntervalDto | null;
+  readonly backup: BackupLastDto | null;
 }
 
 export interface BackupStatusDto {

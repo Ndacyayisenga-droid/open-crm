@@ -96,7 +96,10 @@ function StatusCard({
           />
           <span>{S.healthy}</span>
         </div>
-        {info === null ? (
+        {info === null ||
+        info.retention == null ||
+        info.backupInterval == null ||
+        info.backup == null ? (
           <p className="text-oe-gray-dark text-sm">{S.infoUnavailable}</p>
         ) : (
           <dl className="grid grid-cols-1 gap-1 text-sm sm:grid-cols-2">
