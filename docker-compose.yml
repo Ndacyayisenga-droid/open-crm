@@ -85,12 +85,15 @@ services:
       DB_USER: ${DB_USER}
       DB_PASSWORD: ${DB_PASSWORD}
       STORAGE_BACKEND: s3
-      S3_BUCKET: ${S3_BUCKET}
-      S3_ENDPOINT: ${S3_ENDPOINT}
-      S3_PREFIX: ${S3_PREFIX:-backups}
-      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
-      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
-      AWS_DEFAULT_REGION: ${AWS_DEFAULT_REGION:-eu-central-1}
+      # The image reads the fixed names S3_* / AWS_* internally, but we feed them
+      # from DB_BACKUP_*-prefixed host variables so they don't collide with the
+      # generic S3 credentials any other sidecar might use.
+      S3_BUCKET: ${DB_BACKUP_S3_BUCKET}
+      S3_ENDPOINT: ${DB_BACKUP_S3_ENDPOINT}
+      S3_PREFIX: ${DB_BACKUP_S3_PREFIX:-backups}
+      AWS_ACCESS_KEY_ID: ${DB_BACKUP_AWS_ACCESS_KEY_ID}
+      AWS_SECRET_ACCESS_KEY: ${DB_BACKUP_AWS_SECRET_ACCESS_KEY}
+      AWS_DEFAULT_REGION: ${DB_BACKUP_AWS_DEFAULT_REGION:-eu-central-1}
       # Bearer token shared with the backend (DB_BACKUP_API_TOKEN below).
       API_TOKEN: ${DB_BACKUP_API_TOKEN}
       BACKUP_INTERVAL: ${BACKUP_INTERVAL:-24h}
