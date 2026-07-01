@@ -16,6 +16,7 @@ import static com.openelements.spring.base.mcp.McpTools.uuidProp;
 import com.openelements.crm.company.CompanyService;
 import com.openelements.crm.contact.ContactService;
 import com.openelements.crm.search.CrmSearchService;
+import com.openelements.spring.base.data.image.ImageData;
 import com.openelements.spring.base.mcp.McpPage;
 import com.openelements.spring.base.mcp.McpPaging;
 import com.openelements.spring.base.mcp.McpToolProvider;
@@ -29,9 +30,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.UUID;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Component;
+import org.springframework.web.server.ResponseStatusException;
 
 /**
  * Builds the read-only CRM MCP tool catalog (spec 108, Phase 1) over the existing
@@ -91,7 +94,9 @@ public class McpToolFactory implements McpToolProvider {
             listTagsTool(),
             getTagTool(),
             listCompanyCommentsTool(),
-            listContactCommentsTool()
+            listContactCommentsTool(),
+            getContactPhotoTool(),
+            getCompanyLogoTool()
         );
     }
 
@@ -204,5 +209,41 @@ public class McpToolFactory implements McpToolProvider {
         return support.spec(tool, args -> support.paginate(
             contactService.listCommentsOfContact(requiredUuid(args, "contactId")),
             integer(args, "page"), integer(args, "size")));
+    }
+
+    private SyncToolSpecification getContactPhotoTool() {
+        final Map<String, Object> props = new LinkedHashMap<>();
+        props.put("id", uuidProp("The contact ID."));
+        final McpSchema.Tool tool = tool("get_contact_photo",
+            "Return the contact's photo as an image. Errors if the contact does not exist or has no photo.",
+            props, List.of("id"));
+        return support.imageSpec(tool, args -> {
+            final UUID id = requiredUuid(args, "id");
+            final Optional<ImageData> photo;
+            try {
+                photo = contactService.getPhoto(id);
+            } catch (final ResponseStatusException e) {           // 404: contact missing
+                throw new NoSuchElementException("Contact not found: " + id);
+            }
+            return photo.orElseThrow(() -> new NoSuchElementException("Contact has no photo: " + id));
+        });
+    }
+
+    private SyncToolSpecification getCompanyLogoTool() {
+        final Map<String, Object> props = new LinkedHashMap<>();
+        props.put("id", uuidProp("The company ID."));
+        final McpSchema.Tool tool = tool("get_company_logo",
+            "Return the company's logo as an image. Errors if the company does not exist or has no logo.",
+            props, List.of("id"));
+        return support.imageSpec(tool, args -> {
+            final UUID id = requiredUuid(args, "id");
+            final Optional<ImageData> logo;
+            try {
+                logo = companyService.getLogo(id);
+            } catch (final ResponseStatusException e) {           // 404: company missing
+                throw new NoSuchElementException("Company not found: " + id);
+            }
+            return logo.orElseThrow(() -> new NoSuchElementException("Company has no logo: " + id));
+        });
     }
 }

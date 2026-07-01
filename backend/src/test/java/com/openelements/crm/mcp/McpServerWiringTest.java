@@ -45,7 +45,8 @@ class McpServerWiringTest extends AbstractDbTest {
 
         assertEquals(Set.of(
             "search", "list_companies", "get_company", "list_contacts", "get_contact",
-            "list_tags", "get_tag", "list_company_comments", "list_contact_comments"
+            "list_tags", "get_tag", "list_company_comments", "list_contact_comments",
+            "get_contact_photo", "get_company_logo"
         ), names);
     }
 }

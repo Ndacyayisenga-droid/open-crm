@@ -7,6 +7,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.openelements.crm.AbstractDbTest;
+import com.openelements.crm.company.CompanyEntity;
+import com.openelements.crm.company.CompanyRepository;
 import com.openelements.crm.contact.ContactEntity;
 import com.openelements.crm.contact.ContactRepository;
 import io.modelcontextprotocol.client.McpClient;
@@ -16,6 +18,8 @@ import io.modelcontextprotocol.json.jackson2.JacksonMcpJsonMapper;
 import io.modelcontextprotocol.spec.McpSchema;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.Base64;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
@@ -45,14 +49,23 @@ class McpEndpointIntegrationTest extends AbstractDbTest {
     @LocalServerPort
     private int port;
 
+    private static final byte[] PHOTO_BYTES = {1, 2, 3, 4, 5, 6, 7, 8};
+    private static final byte[] LOGO_BYTES = {10, 20, 30, 40, 50};
+
     @Autowired
     private ContactRepository contactRepository;
+
+    @Autowired
+    private CompanyRepository companyRepository;
 
     @Autowired
     private JdbcTemplate jdbcTemplate;
 
     private String rawKey;
     private UUID contactId;
+    private UUID contactWithPhotoId;
+    private UUID companyWithLogoId;
+    private UUID companyNoLogoId;
 
     @BeforeEach
     void seed() {
@@ -70,6 +83,24 @@ class McpEndpointIntegrationTest extends AbstractDbTest {
         contact.setLastName("Musterfrau");
         contact.setEmail("erika@example.com");
         contactId = contactRepository.saveAndFlush(contact).getId();
+
+        final ContactEntity withPhoto = new ContactEntity();
+        withPhoto.setFirstName("Max");
+        withPhoto.setLastName("Mustermann");
+        withPhoto.setEmail("max@example.com");
+        withPhoto.setPhoto(PHOTO_BYTES);
+        withPhoto.setPhotoContentType("image/jpeg");
+        contactWithPhotoId = contactRepository.saveAndFlush(withPhoto).getId();
+
+        final CompanyEntity withLogo = new CompanyEntity();
+        withLogo.setName("Logo GmbH");
+        withLogo.setLogo(LOGO_BYTES);
+        withLogo.setLogoContentType("image/png");
+        companyWithLogoId = companyRepository.saveAndFlush(withLogo).getId();
+
+        final CompanyEntity noLogo = new CompanyEntity();
+        noLogo.setName("Plain AG");
+        companyNoLogoId = companyRepository.saveAndFlush(noLogo).getId();
     }
 
     private McpSyncClient newClient(final String apiKey) {
@@ -89,11 +120,23 @@ class McpEndpointIntegrationTest extends AbstractDbTest {
     @Test
     void listToolsReturnsThePhase1Catalog() {
         try (McpSyncClient client = newClient(rawKey)) {
-            final var names = client.listTools().tools().stream().map(McpSchema.Tool::name).toList();
-            assertEquals(9, names.size());
+            final var tools = client.listTools().tools();
+            final var names = tools.stream().map(McpSchema.Tool::name).toList();
+            assertEquals(11, names.size());
             assertTrue(names.contains("search"));
             assertTrue(names.contains("list_contacts"));
             assertTrue(names.contains("list_company_comments"));
+            assertTrue(names.contains("get_contact_photo"));
+            assertTrue(names.contains("get_company_logo"));
+
+            for (final String imageTool : List.of("get_contact_photo", "get_company_logo")) {
+                final McpSchema.Tool tool = tools.stream()
+                    .filter(t -> t.name().equals(imageTool)).findFirst().orElseThrow();
+                assertTrue(tool.inputSchema().required().contains("id"),
+                    imageTool + " must declare a required id property");
+                assertTrue(tool.inputSchema().properties().containsKey("id"),
+                    imageTool + " must expose an id input property");
+            }
         }
     }
 
@@ -148,6 +191,115 @@ class McpEndpointIntegrationTest extends AbstractDbTest {
             assertEquals(0, json.get("totalCount").asInt());
             assertFalse(json.get("hasMore").asBoolean());
         }
+    }
+
+    @Test
+    void getContactPhotoReturnsJpegImageContent() {
+        try (McpSyncClient client = newClient(rawKey)) {
+            final McpSchema.CallToolResult result = client.callTool(
+                new McpSchema.CallToolRequest("get_contact_photo", Map.of("id", contactWithPhotoId.toString())));
+            assertFalse(Boolean.TRUE.equals(result.isError()), "photo fetch must not error");
+            final McpSchema.ImageContent image = (McpSchema.ImageContent) result.content().get(0);
+            assertEquals("image/jpeg", image.mimeType());
+            assertEquals(Base64.getEncoder().encodeToString(PHOTO_BYTES), image.data());
+        }
+    }
+
+    @Test
+    void getContactPhotoErrorsWhenContactHasNoPhoto() {
+        try (McpSyncClient client = newClient(rawKey)) {
+            final McpSchema.CallToolResult result = client.callTool(
+                new McpSchema.CallToolRequest("get_contact_photo", Map.of("id", contactId.toString())));
+            assertTrue(Boolean.TRUE.equals(result.isError()), "contact without a photo must be a tool error");
+        }
+    }
+
+    @Test
+    void getContactPhotoErrorsWhenContactUnknown() {
+        try (McpSyncClient client = newClient(rawKey)) {
+            final McpSchema.CallToolResult result = client.callTool(
+                new McpSchema.CallToolRequest("get_contact_photo", Map.of("id", UUID.randomUUID().toString())));
+            assertTrue(Boolean.TRUE.equals(result.isError()), "unknown contact must be a tool error");
+        }
+    }
+
+    @Test
+    void getContactPhotoErrorsOnMalformedId() {
+        try (McpSyncClient client = newClient(rawKey)) {
+            final McpSchema.CallToolResult result = client.callTool(
+                new McpSchema.CallToolRequest("get_contact_photo", Map.of("id", "not-a-uuid")));
+            assertTrue(Boolean.TRUE.equals(result.isError()), "malformed id must be a tool error");
+        }
+    }
+
+    @Test
+    void getContactPhotoErrorsOnMissingId() {
+        try (McpSyncClient client = newClient(rawKey)) {
+            final McpSchema.CallToolResult result = client.callTool(
+                new McpSchema.CallToolRequest("get_contact_photo", Map.of()));
+            assertTrue(Boolean.TRUE.equals(result.isError()), "missing id must be a tool error");
+        }
+    }
+
+    @Test
+    void getCompanyLogoPreservesStoredPngContentType() {
+        try (McpSyncClient client = newClient(rawKey)) {
+            final McpSchema.CallToolResult result = client.callTool(
+                new McpSchema.CallToolRequest("get_company_logo", Map.of("id", companyWithLogoId.toString())));
+            assertFalse(Boolean.TRUE.equals(result.isError()), "logo fetch must not error");
+            final McpSchema.ImageContent image = (McpSchema.ImageContent) result.content().get(0);
+            assertEquals("image/png", image.mimeType(), "logos are stored as-uploaded, not transcoded to jpeg");
+            assertEquals(Base64.getEncoder().encodeToString(LOGO_BYTES), image.data());
+        }
+    }
+
+    @Test
+    void getCompanyLogoErrorsWhenCompanyHasNoLogo() {
+        try (McpSyncClient client = newClient(rawKey)) {
+            final McpSchema.CallToolResult result = client.callTool(
+                new McpSchema.CallToolRequest("get_company_logo", Map.of("id", companyNoLogoId.toString())));
+            assertTrue(Boolean.TRUE.equals(result.isError()), "company without a logo must be a tool error");
+        }
+    }
+
+    @Test
+    void getCompanyLogoErrorsWhenCompanyUnknown() {
+        try (McpSyncClient client = newClient(rawKey)) {
+            final McpSchema.CallToolResult result = client.callTool(
+                new McpSchema.CallToolRequest("get_company_logo", Map.of("id", UUID.randomUUID().toString())));
+            assertTrue(Boolean.TRUE.equals(result.isError()), "unknown company must be a tool error");
+        }
+    }
+
+    @Test
+    void getCompanyLogoErrorsOnMissingId() {
+        try (McpSyncClient client = newClient(rawKey)) {
+            final McpSchema.CallToolResult result = client.callTool(
+                new McpSchema.CallToolRequest("get_company_logo", Map.of()));
+            assertTrue(Boolean.TRUE.equals(result.isError()), "missing id must be a tool error");
+        }
+    }
+
+    @Test
+    void getCompanyLogoErrorsOnMalformedId() {
+        try (McpSyncClient client = newClient(rawKey)) {
+            final McpSchema.CallToolResult result = client.callTool(
+                new McpSchema.CallToolRequest("get_company_logo", Map.of("id", "not-a-uuid")));
+            assertTrue(Boolean.TRUE.equals(result.isError()), "malformed id must be a tool error");
+        }
+    }
+
+    @Test
+    void imageToolsDoNotWriteAnAuditLogRow() {
+        final long before = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM audit_log", Long.class);
+        try (McpSyncClient client = newClient(rawKey)) {
+            client.callTool(new McpSchema.CallToolRequest(
+                "get_contact_photo", Map.of("id", contactWithPhotoId.toString())));   // success
+            client.callTool(new McpSchema.CallToolRequest(
+                "get_company_logo", Map.of("id", UUID.randomUUID().toString())));      // error
+        }
+        final long after = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM audit_log", Long.class);
+        assertEquals(before, after, "MCP image reads must not write an audit-log row");
     }
 
     private JsonNode callOk(final McpSyncClient client, final String tool, final Map<String, Object> args)

@@ -8,6 +8,8 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.openelements.spring.base.data.image.ImageData;
+import com.openelements.spring.base.data.image.ImageType;
 import com.openelements.spring.base.mcp.McpProperties.Auth;
 import com.openelements.spring.base.mcp.McpProperties.Auth.ApiKey;
 import com.openelements.spring.base.mcp.McpProperties.Auth.Oidc;
@@ -16,7 +18,9 @@ import io.modelcontextprotocol.server.McpServerFeatures.SyncToolSpecification;
 import io.modelcontextprotocol.server.McpSyncServerExchange;
 import io.modelcontextprotocol.spec.McpSchema;
 import io.modelcontextprotocol.spec.McpSchema.CallToolResult;
+import io.modelcontextprotocol.spec.McpSchema.ImageContent;
 import io.modelcontextprotocol.spec.McpSchema.TextContent;
+import java.util.Base64;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
@@ -48,6 +52,14 @@ class McpToolSupportTest {
 
     private static String text(final CallToolResult result) {
         return ((TextContent) result.content().get(0)).text();
+    }
+
+    private CallToolResult imageCall(final McpImageLogic logic, final Map<String, Object> args) {
+        final McpSyncServerExchange exchange = mock(McpSyncServerExchange.class);
+        when(exchange.transportContext()).thenReturn(
+            McpTransportContext.create(Map.of(McpActorLabel.ACTOR_LABEL_KEY, "apikey:test")));
+        final SyncToolSpecification spec = support.imageSpec(TOOL, logic);
+        return spec.call().apply(exchange, args);
     }
 
     // -- spec(): success -----------------------------------------------------
@@ -125,6 +137,91 @@ class McpToolSupportTest {
     @Test
     void unexpectedExceptionBecomesGenericInternalErrorWithoutLeakingDetails() {
         final CallToolResult result = call(args -> {
+            throw new IllegalStateException("connection pool exhausted at jdbc://secret");
+        }, Map.of());
+
+        assertTrue(result.isError());
+        assertEquals("Internal error executing tool demo", text(result),
+            "internal errors must not leak the underlying message");
+    }
+
+    // -- imageSpec(): success ------------------------------------------------
+
+    @Test
+    void imageSpecCarriesTheGivenTool() {
+        final SyncToolSpecification spec = support.imageSpec(TOOL,
+            args -> new ImageData(new byte[] {1, 2, 3}, ImageType.JPEG));
+        assertEquals("demo", spec.tool().name());
+    }
+
+    @Test
+    void imageSuccessReturnsImageContentWithBase64DataAndMimeType() {
+        final byte[] bytes = {0, 1, 2, 3, 4, 5};
+        final ImageData image = new ImageData(bytes, ImageType.PNG);
+
+        final CallToolResult result = imageCall(args -> image, Map.of("id", "x"));
+
+        assertFalse(result.isError(), "successful image call must not be an error result");
+        assertEquals(1, result.content().size(), "image result carries a single content item");
+        final ImageContent content = (ImageContent) result.content().get(0);
+        assertEquals(Base64.getEncoder().encodeToString(bytes), content.data());
+        assertEquals("image/png", content.mimeType());
+    }
+
+    @Test
+    void imageMimeTypeMirrorsTheStoredContentType() {
+        final CallToolResult result =
+            imageCall(args -> new ImageData(new byte[] {9}, ImageType.JPEG), Map.of());
+
+        final ImageContent content = (ImageContent) result.content().get(0);
+        assertEquals("image/jpeg", content.mimeType());
+    }
+
+    @Test
+    void imageLogicReceivesNonNullArgsEvenWhenNull() {
+        final CallToolResult result = imageCall(args -> {
+            assertNotNull(args, "image logic must never receive null args");
+            return new ImageData(new byte[] {1}, ImageType.JPEG);
+        }, null);
+
+        assertFalse(result.isError());
+    }
+
+    // -- imageSpec(): error mapping -----------------------------------------
+
+    @Test
+    void imageIllegalArgumentBecomesInvalidArgumentError() {
+        final CallToolResult result = imageCall(args -> {
+            throw new IllegalArgumentException("id is required");
+        }, Map.of());
+
+        assertTrue(result.isError());
+        assertEquals("Invalid argument: id is required", text(result));
+    }
+
+    @Test
+    void imageNoSuchElementBecomesNotFoundErrorWithMessage() {
+        final CallToolResult result = imageCall(args -> {
+            throw new NoSuchElementException("Contact has no photo: 42");
+        }, Map.of());
+
+        assertTrue(result.isError());
+        assertEquals("Contact has no photo: 42", text(result));
+    }
+
+    @Test
+    void imageUnavailableExceptionBecomesUnavailableErrorWithMessage() {
+        final CallToolResult result = imageCall(args -> {
+            throw new McpUnavailableException("temporarily unavailable");
+        }, Map.of());
+
+        assertTrue(result.isError());
+        assertEquals("temporarily unavailable", text(result));
+    }
+
+    @Test
+    void imageUnexpectedExceptionBecomesGenericInternalErrorWithoutLeakingDetails() {
+        final CallToolResult result = imageCall(args -> {
             throw new IllegalStateException("connection pool exhausted at jdbc://secret");
         }, Map.of());
 
